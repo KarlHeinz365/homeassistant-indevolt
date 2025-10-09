@@ -29,3 +29,18 @@ class IndevoltAPI:
         except aiohttp.ClientError as err:
             raise Exception(f"Indevolt.GetData Network error: {err}")
 
+    async def set_data(self, f: int, t: int, v: list) -> dict[str, Any]:
+        """Send raw JSON data to the device"""
+        config_param = json.dumps({"f": f, "t": t, "v": v}).replace(" ", "")
+        url = f"{self.base_url}/Indevolt.SetData?config={config_param}"
+        
+        try:
+            async with self.session.post(url, timeout=self.timeout) as response:
+                if response.status != 200:
+                    raise Exception(f"HTTP status error: {response.status}")
+                return await response.json()
+
+        except asyncio.TimeoutError:
+            raise Exception("Indevolt.SetData Request timed out")
+        except aiohttp.ClientError as err:
+            raise Exception(f"Indevolt.SetData Network error: {err}")
