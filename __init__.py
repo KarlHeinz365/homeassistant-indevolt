@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryNotReady
 from .const import DOMAIN, PLATFORMS
 from .coordinator import IndevoltCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+SERVICE_SCHEMA = vol.Schema({
+    vol.Required("power"): cv.positive_int,
+})
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """
@@ -25,27 +31,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """
     Set up indevolt from a config entry.
     This is the main setup function called when a config entry is added.
-    It initializes the coordinator and sets up platforms.
+    It initializes the coordinator and sets up platforms and services.
     """
     hass.data.setdefault(DOMAIN, {})
     
     try:
         coordinator = IndevoltCoordinator(hass, entry.data)
-        # Perform initial data refresh.
         await coordinator.async_config_entry_first_refresh()
-        # Store coordinator in hass.data for platform access.
         hass.data[DOMAIN][entry.entry_id] = coordinator
-        # Set up all platforms (sensors, switches, etc.).
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+        # --- NEW SERVICE REGISTRATION ---
+        async def charge(call: ServiceCall):
+            """Handle the service call to start charging."""
+            power = call.data.get("power")
+            await coordinator.api.set_data(f=16, t=47015, v=[1, power, 100])
+
+        async def discharge(call: ServiceCall):
+            """Handle the service call to start discharging."""
+            power = call.data.get("power")
+            await coordinator.api.set_data(f=16, t=47015, v=[2, power, 5])
+
+        async def stop(call: ServiceCall):
+            """Handle the service call to stop the battery."""
+            await coordinator.api.set_data(f=16, t=47015, v=[0, 0, 0])
+
+        hass.services.async_register(DOMAIN, "charge", charge, schema=SERVICE_SCHEMA)
+        hass.services.async_register(DOMAIN, "discharge", discharge, schema=SERVICE_SCHEMA)
+        hass.services.async_register(DOMAIN, "stop", stop)
+        # --- END NEW SERVICE REGISTRATION ---
+        
         return True 
     
     except Exception as err:
         _LOGGER.exception("Unexpected error occurred while setting config entry.")
-        
-        # Clean up partially created resources.
         if entry.entry_id in hass.data.get(DOMAIN, {}):
             del hass.data[DOMAIN][entry.entry_id]
-        
         raise ConfigEntryNotReady from err
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -57,6 +78,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("Config entry %s not loaded or already unloaded", entry.entry_id)
         return True
     
+    # --- UNLOAD SERVICES ---
+    hass.services.async_remove(DOMAIN, "charge")
+    hass.services.async_remove(DOMAIN, "discharge")
+    hass.services.async_remove(DOMAIN, "stop")
+    # --- END UNLOAD SERVICES ---
+
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     if unload_ok:
