@@ -260,7 +260,7 @@ SENSORS_GEN2: Final = (
     ),
     IndevoltSensorEntityDescription(
         key="6009",
-        name="Battery SOC",
+        name="Battery SOC Main Unit",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT
@@ -342,6 +342,13 @@ SENSORS_GEN2: Final = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT
     ),
+    IndevoltSensorEntityDescription(
+    key="6002",
+    name="Total Battery SOC",
+    native_unit_of_measurement=PERCENTAGE,
+    device_class=SensorDeviceClass.BATTERY,
+    state_class=SensorStateClass.MEASUREMENT
+),
 )
 
 
