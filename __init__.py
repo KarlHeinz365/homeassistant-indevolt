@@ -22,16 +22,12 @@ SERVICE_SCHEMA = vol.Schema({
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """
     Set up the indevolt integration component.
-    This function is called when the integration is added to the Home Assistant configuration.
-    No component-level setup needed.
     """
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """
     Set up indevolt from a config entry.
-    This is the main setup function called when a config entry is added.
-    It initializes the coordinator and sets up platforms and services.
     """
     hass.data.setdefault(DOMAIN, {})
     
@@ -41,7 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][entry.entry_id] = coordinator
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-        # --- NEW SERVICE REGISTRATION ---
+        # --- SERVICE REGISTRATION ---
         async def charge(call: ServiceCall):
             """Handle the service call to start charging."""
             power = call.data.get("power")
@@ -55,11 +51,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async def stop(call: ServiceCall):
             """Handle the service call to stop the battery."""
             await coordinator.api.set_data(f=16, t=47015, v=[0, 0, 0])
+            
+        # --- NEUER DIENST ---
+        async def set_realtime_mode(call: ServiceCall):
+            """Handle the service call to force real-time control mode."""
+            await coordinator.api.set_data(f=16, t=47005, v=[4])
+        # --- ENDE NEUER DIENST ---
 
         hass.services.async_register(DOMAIN, "charge", charge, schema=SERVICE_SCHEMA)
         hass.services.async_register(DOMAIN, "discharge", discharge, schema=SERVICE_SCHEMA)
         hass.services.async_register(DOMAIN, "stop", stop)
-        # --- END NEW SERVICE REGISTRATION ---
+        # --- NEUE REGISTRIERUNG ---
+        hass.services.async_register(DOMAIN, "set_realtime_mode", set_realtime_mode)
+        # --- ENDE NEUE REGISTRIERUNG ---
         
         return True 
     
@@ -72,17 +76,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """
     Unload a config entry and clean up resources.
-    This is called when the integration is removed or reloaded.
     """
     if DOMAIN not in hass.data or entry.entry_id not in hass.data[DOMAIN]:
-        _LOGGER.debug("Config entry %s not loaded or already unloaded", entry.entry_id)
         return True
     
     # --- UNLOAD SERVICES ---
     hass.services.async_remove(DOMAIN, "charge")
     hass.services.async_remove(DOMAIN, "discharge")
     hass.services.async_remove(DOMAIN, "stop")
-    # --- END UNLOAD SERVICES ---
+    # --- NEUER UNLOAD ---
+    hass.services.async_remove(DOMAIN, "set_realtime_mode")
+    # --- ENDE NEUER UNLOAD ---
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
