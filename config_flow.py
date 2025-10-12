@@ -1,11 +1,12 @@
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import DOMAIN, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, SUPPORTED_MODELS
 from .utils import get_device_gen
 import logging
 import asyncio
-from .coordinator import IndevoltAPI
+from .indevolt_api import IndevoltAPI
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -14,13 +15,16 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Erstellt den Options-Flow-Handler."""
+        return IndevoltOptionsFlowHandler(config_entry)
+
     async def async_step_user(self, user_input=None):
         """
         Handle the initial user configuration step.
-        This method is called when the user initiates the integration setup.
-        It presents a form for device connection parameters and validates them.
         """
-        
         errors = {}
         if user_input is not None:
             host = user_input["host"]
@@ -29,10 +33,8 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
             device_model = user_input["device_model"]
 
             api = IndevoltAPI(host, port, async_get_clientsession(self.hass))
-
             device_gen = get_device_gen(device_model)
             
-
             try:
                 fw_version=""
                 if device_gen == 1:
@@ -43,9 +45,8 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
                 data = await api.fetch_data([0])
                 device_sn = data.get("0")
 
-                # Create configuration entry on successful connection.
                 return self.async_create_entry(
-                    title=f"INDEVOLT {device_model} ({host})", # Entry title shown in HA UI.
+                    title=f"INDEVOLT {device_model} ({host})",
                     data={
                         "host": host,
                         "port": port,
@@ -71,4 +72,32 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required("device_model"): vol.In(SUPPORTED_MODELS),
             }),
             errors=errors
+        )
+
+class IndevoltOptionsFlowHandler(OptionsFlow):
+    """Handles options flow for the Indevolt integration."""
+
+    # --- ENDGÜLTIGE KORREKTUR ---
+    # Wir definieren __init__, um das 'config_entry' Argument zu akzeptieren,
+    # aber lassen den Körper leer, da Home Assistant sich um die Zuweisung kümmert.
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize the options flow."""
+        pass
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Optional(
+                    "scan_interval",
+                    default=self.config_entry.options.get(
+                        "scan_interval", 
+                        self.config_entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+                    ),
+                ): int,
+            }),
         )
