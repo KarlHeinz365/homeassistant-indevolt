@@ -73,7 +73,7 @@ The integration creates a rich set of sensor entities to monitor every aspect of
 
 ## Configuration
 
-1. **Install** this custom component (e.g., via HACS).
+1. **Install** this custom component dowbload the zip and put all files in /homeassistant/custom_components/indevolt/
 2. In Home Assistant, go to **Settings > Devices & Services**.
 3. Click **Add Integration** and search for `INDEVOLT`.
 4. Enter the required information:
