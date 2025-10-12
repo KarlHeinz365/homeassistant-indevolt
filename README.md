@@ -167,6 +167,23 @@ action:
 
 ---
 
+## Manifest
+
+```json
+{
+  "domain": "indevolt",
+  "name": "INDEVOLT",
+  "version": "1.0",
+  "requirements": ["aiohttp"],
+  "dependencies": [],
+  "codeowners": [],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
+```
+
+---
+
 ## Credits
 
 Based on the work by [solarmanpv/homeassistant-indevolt](https://github.com/solarmanpv/homeassistant-indevolt).
