@@ -109,60 +109,73 @@ mode: single
 This is the primary use case for these new services. The following automation uses a grid power sensor to keep the import/export near zero. It dynamically charges the battery with surplus solar power and discharges it to cover home consumption, minimizing grid interaction.
 
 ```yaml
-alias: "Batterie Nulleinspeisung Steuerung (Indevolt)"
-description: "Steuert die Batterie für Nulleinspeisung und Nachtversorgung."
-mode: single
+alias: Battery Zero-Export Controller
+description: Dynamically controls the battery to achieve zero grid export.
+mode: restart
 
 trigger:
+  # Trigger periodically to ensure the system is always adjusting.
   - platform: time_pattern
     seconds: "/30"
+  # Trigger immediately on any change in grid power.
   - platform: state
-    entity_id: sensor.your_grid_power_sensor        # e.g., sensor.power_grid
+    entity_id: sensor.your_grid_power_sensor # e.g., sensor.fronius_power_grid
+  # (Optional) Trigger on EV charging state changes to pause the controller.
   - platform: state
-    entity_id: binary_sensor.your_ev_charging_sensor # Optional: sensor to pause battery control
+    entity_id: binary_sensor.your_ev_charging_sensor # e.g., binary_sensor.wallbox_status
 
 action:
-  - choose:
-      # RULE 1 (Optional): EV IS CHARGING -> STOP BATTERY
-      - conditions:
-          - condition: state
-            entity_id: binary_sensor.your_ev_charging_sensor
-            state: "on"
-        sequence:
-          - service: indevolt.stop
-          - stop: "EV charging is active, pausing battery control."
-
-      # RULE 2: SURPLUS POWER (EXPORTING) -> CHARGE BATTERY
-      # Condition: Exporting more than the deadband value (e.g., 50W)
-      - conditions:
-          - condition: numeric_state
-            entity_id: sensor.your_grid_power_sensor
-            below: -50       # Negative value means export
-          - condition: numeric_state
-            entity_id: sensor.indevolt_total_battery_soc
-            below: 99        # Don't charge if almost full
-        sequence:
-          - service: indevolt.charge
-            data:
-              power: "{{ states('sensor.your_grid_power_sensor') | int(0) | abs }}"
-
-      # RULE 3: GRID IMPORT (CONSUMING) -> DISCHARGE BATTERY
-      # Condition: Importing more than the deadband value (e.g., 50W)
-      - conditions:
-          - condition: numeric_state
-            entity_id: sensor.your_grid_power_sensor
-            above: 50        # Positive value means import
-          - condition: numeric_state
-            entity_id: sensor.indevolt_total_battery_soc
-            above: 20        # Minimum SOC to allow discharging
-        sequence:
-          - service: indevolt.discharge
-            data:
-              power: "{{ states('sensor.your_grid_power_sensor') | int(0) }}"
-
-    # DEFAULT ACTION: IN DEADBAND (-50W to 50W) -> STOP BATTERY
-    default:
+  # First, check for any overriding conditions, like EV charging.
+  - if:
+      - condition: state
+        entity_id: binary_sensor.your_ev_charging_sensor
+        state: "on"
+    then:
+      # If the override is active, stop the battery and exit the automation.
       - service: indevolt.stop
+        data: {}
+    else:
+      # If no overrides are active, proceed with the main control logic.
+      # 1. Define variables to make the logic clean and readable.
+      - variables:
+          grid_power: "{{ states('sensor.your_grid_power_sensor') | int(0) }}"
+          # IMPORTANT: Adjust this entity_id to your battery's power sensor!
+          battery_power: "{{ states('sensor.indevolt_battery_power') | int(0) }}"
+          deadband: "{{ states('input_number.grid_power_deadband') | int(0) }}"
+          min_soc: "{{ states('input_number.battery_minimum_soc') | int(0) }}"
+          max_soc: "{{ states('input_number.battery_maximum_soc') | int(0) }}"
+          soc: "{{ states('sensor.indevolt_total_battery_soc') | int(0) }}"
+
+      # 2. Use a 'choose' action to implement the core control logic.
+      - choose:
+          # RULE 1: GRID EXPORT (SURPLUS POWER) -> CHARGE BATTERY
+          - conditions:
+              # Condition: Exporting more power than the deadband allows (negative value).
+              - "{{ grid_power < -deadband }}"
+              # Condition: Battery is not yet full.
+              - "{{ soc < max_soc }}"
+            sequence:
+              - service: indevolt.charge
+                data:
+                  # New Power = Current Battery Power + Grid Export
+                  power: "{{ (battery_power + grid_power) | abs | int }}"
+
+          # RULE 2: GRID IMPORT -> DISCHARGE BATTERY
+          - conditions:
+              # Condition: Importing more power than the deadband allows (positive value).
+              - "{{ grid_power > deadband }}"
+              # Condition: Battery is above the minimum allowed SOC.
+              - "{{ soc > min_soc }}"
+            sequence:
+              - service: indevolt.discharge
+                data:
+                  # New Power = Current Battery Power + Grid Import
+                  power: "{{ (battery_power + grid_power) | int }}"
+
+        # DEFAULT ACTION: GRID POWER IS WITHIN THE DEADBAND -> STOP BATTERY
+        default:
+          - service: indevolt.stop
+            data: {}
 ```
 
 ---
