@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your inDevolt Device",
+        "description": "Enter the connection details for your device.",
+        "data": {
+          "host": "IP Address",
+          "port": "Port",
+          "device_model": "Device Model"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Please check the IP address and port, and ensure the device is online.",
+      "unknown": "An unknown error occurred. Please check the Home Assistant logs for more details."
+    },
+    "abort": {
+      "already_configured": "This device has already been configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "inDevolt Settings",
+        "data": {
+          "scan_interval": "Update Interval (seconds)"
+        }
+      }
+    }
+  }
+}
