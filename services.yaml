@@ -1,1 +1,39 @@
+# Describes the services for the inDevolt integration
 
+set_realtime_mode:
+  name: Set Real-Time Mode
+  description: Puts the device into a mode that accepts real-time control commands. This should be called once after a Home Assistant restart to ensure reliable operation.
+
+charge:
+  name: Charge Battery
+  description: Tells the battery to start charging.
+  fields:
+    power:
+      name: Power
+      description: The charging power in Watts.
+      required: true
+      example: 500
+      selector:
+        number:
+          min: 0
+          max: 2000 # You can adjust this max value
+          unit_of_measurement: "W"
+
+discharge:
+  name: Discharge Battery
+  description: Tells the battery to start discharging to power your home.
+  fields:
+    power:
+      name: Power
+      description: The discharging power in Watts.
+      required: true
+      example: 300
+      selector:
+        number:
+          min: 0
+          max: 2000 # You can adjust this max value
+          unit_of_measurement: "W"
+
+stop:
+  name: Stop Battery
+  description: Puts the battery into standby mode, stopping any active charging or discharging.
