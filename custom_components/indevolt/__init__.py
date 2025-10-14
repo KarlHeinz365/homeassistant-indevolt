@@ -61,8 +61,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             """Handle the service call to force real-time control mode."""
             await coordinator.api.set_data(f=16, t=47005, v=[4])
 
-        hass.services.async_register(DOMAIN, "charge", charge, schema=SERVICE_SCHEMA)
-        hass.services.async_register(DOMAIN, "discharge", discharge, schema=SERVICE_SCHEMA)
+        hass.services.async_register(DOMAIN, "charge", charge)
+        hass.services.async_register(DOMAIN, "discharge", discharge)
         hass.services.async_register(DOMAIN, "stop", stop)
         hass.services.async_register(DOMAIN, "set_realtime_mode", set_realtime_mode)
         
@@ -105,3 +105,4 @@ async def async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None
     
     coordinator.update_interval = timedelta(seconds=new_interval)
     _LOGGER.info(f"Indevolt scan interval updated to {new_interval} seconds")
+
