@@ -401,7 +401,45 @@ class IndevoltSensorEntity(CoordinatorEntity, SensorEntity):
     def native_value(self):
         """Return the current value of the sensor in its native unit."""    
         raw_value = self.coordinator.data.get(self.entity_description.key)
+        old_value = self._attr_native_value # Holt den zuletzt gespeicherten Wert der Entität
         
+        # --- NEUE LOGIK: Nur für TOTAL_INCREASING Sensoren ---
+        if self.entity_description.state_class == SensorStateClass.TOTAL_INCREASING:
+            
+            # FALL 1: Die API liefert "None" (z.B. bei Verbindungsfehler)
+            if raw_value is None:
+                # Behalte einfach den alten Wert bei, anstatt "unknown" zu melden
+                _LOGGER.debug(
+                    "Sensor %s received 'None' value. "
+                    "Returning last known value: %s.",
+                    self.entity_id, old_value
+                )
+                return old_value 
+
+            # Berechne den neuen Wert
+            new_value = raw_value * self.entity_description.coefficient
+
+            # FALL 2: Die API liefert einen Wert, der kleiner ist als der letzte (z.B. ein 0-Reset)
+            if old_value is not None:
+                try:
+                    old_value_float = float(old_value)
+                    if new_value < old_value_float:
+                        _LOGGER.warning(
+                            "Sensor %s received a non-increasing value (Reset-Erkennung). "
+                            "New: %s, Old: %s. Update wird ignoriert.",
+                            self.entity_id, new_value, old_value_float
+                        )
+                        return old_value_float # Ignoriere den Einbruch und gib den alten Wert zurück
+                except (ValueError, TypeError):
+                    # Der alte Wert war ungültig (z.B. 'unknown'), fahre normal fort
+                    pass 
+            
+            # FALL 3: Alles ist normal, gib den neuen Wert zurück
+            return new_value
+        
+        # --- Ende der neuen Logik ---
+
+        # Original-Logik für alle anderen Sensortypen (z.B. Power, Enum)
         if raw_value is None:
             return None
         
