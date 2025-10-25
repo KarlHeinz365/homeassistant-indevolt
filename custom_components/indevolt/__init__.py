@@ -4,22 +4,17 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-import voluptuous as vol
-from homeassistant.helpers import config_validation as cv
-
+# HINWEIS: 'vol' und 'cv' werden nicht mehr benötigt
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryNotReady
-# HIER IST DIE KORREKTUR: DEFAULT_SCAN_INTERVAL wird jetzt importiert
 from .const import DOMAIN, PLATFORMS, DEFAULT_SCAN_INTERVAL
 from .coordinator import IndevoltCoordinator
 from datetime import timedelta
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_SCHEMA = vol.Schema({
-    vol.Required("power"): cv.positive_int,
-})
+# HINWEIS: Das ungenutzte SERVICE_SCHEMA wurde entfernt
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """
@@ -42,25 +37,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         entry.async_on_unload(entry.add_update_listener(async_update_listener))
 
-        # --- SERVICE REGISTRATION ---
+        # --- SERVICE REGISTRATION (JETZT SAUBER - Optimierung 3) ---
         async def charge(call: ServiceCall):
             """Handle the service call to start charging."""
             power = call.data.get("power")
-            await coordinator.api.set_data(f=16, t=47015, v=[1, power, 100])
+            _LOGGER.debug(f"Calling charge service with power: {power}W")
+            await coordinator.api.async_charge(power)
 
         async def discharge(call: ServiceCall):
             """Handle the service call to start discharging."""
             power = call.data.get("power")
-            await coordinator.api.set_data(f=16, t=47015, v=[2, power, 5])
+            _LOGGER.debug(f"Calling discharge service with power: {power}W")
+            await coordinator.api.async_discharge(power)
 
         async def stop(call: ServiceCall):
             """Handle the service call to stop the battery."""
-            await coordinator.api.set_data(f=16, t=47015, v=[0, 0, 0])
+            _LOGGER.debug("Calling stop service")
+            await coordinator.api.async_stop()
             
         async def set_realtime_mode(call: ServiceCall):
             """Handle the service call to force real-time control mode."""
-            await coordinator.api.set_data(f=16, t=47005, v=[4])
+            _LOGGER.debug("Calling set_realtime_mode service")
+            await coordinator.api.async_set_realtime_mode()
 
+        # HINWEIS: 'schema' entfernt, da 'services.yaml' dies nun übernimmt
         hass.services.async_register(DOMAIN, "charge", charge)
         hass.services.async_register(DOMAIN, "discharge", discharge)
         hass.services.async_register(DOMAIN, "stop", stop)
@@ -105,4 +105,3 @@ async def async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None
     
     coordinator.update_interval = timedelta(seconds=new_interval)
     _LOGGER.info(f"Indevolt scan interval updated to {new_interval} seconds")
-
