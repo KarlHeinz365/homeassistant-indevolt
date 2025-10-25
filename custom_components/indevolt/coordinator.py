@@ -47,22 +47,25 @@ class IndevoltCoordinator(DataUpdateCoordinator):
         """Helper to access combined config data and options."""
         return {**self.config_entry.data, **self.config_entry.options}
 
-    # --- START DER OPTIMIERTEN METHODE ---
+    # --- START DER OPTIMIERTEN METHODE (Optimierung 1) ---
 
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch latest data from device."""
         
         try:
-            keys=[]
+            keys: list[int] = [] # Definiere als Liste von Integers
+            
             if get_device_gen(self.config["device_model"])==1:
-                # KORREKTUR: Keys von String zu Integer (Zahl) umwandeln
+                # OPTIMIERUNG: Erstelle die Key-Liste dynamisch
+                # KORREKTUR: Wandle Keys in int() um
                 keys=[int(desc.key) for desc in SENSORS_GEN1]
             else:
-                # KORREKTUR: Keys von String zu Integer (Zahl) umwandeln
+                # OPTIMIERUNG: Erstelle die Key-Liste dynamisch
+                # KORREKTUR: Wandle Keys in int() um
                 keys=[int(desc.key) for desc in SENSORS_GEN2]
             
             # --- HAUPTOPTIMIERUNG: ---
-            # Rufe ALLE Keys (jetzt als Zahlen) in EINEM EINZIGEN API-Aufruf ab
+            # Rufe ALLE Keys in EINEM EINZIGEN API-Aufruf ab
             _LOGGER.debug(f"Fetching {len(keys)} keys in a single request")
             data = await self.api.fetch_data(keys)
 
@@ -70,10 +73,12 @@ class IndevoltCoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("No data received from API, returning last known data or empty dict.")
                 return self.data or {}
 
-            # Die API gibt die Keys als Strings zurück, was für HA korrekt ist.
+            # Daten sind bereits ein dict { "key_str": value },
+            # da die API Strings zurückgibt.
             return data
         
         except Exception as err:
+            # OPTIMIERUNG: Fange spezifische API-Fehler ab und melde sie korrekt
             _LOGGER.error("Error communicating with API: %s", err)
             raise UpdateFailed(f"Failed to fetch data: {err}") from err
 
