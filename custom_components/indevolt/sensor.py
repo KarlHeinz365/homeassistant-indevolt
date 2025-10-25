@@ -397,6 +397,8 @@ class IndevoltSensorEntity(CoordinatorEntity, SensorEntity):
         if description.device_class == SensorDeviceClass.ENUM:
             self._attr_options = list(set(description.state_mapping.values()))
 
+    # --- START DER OPTIMIERTEN METHODE (Optimierung 2) ---
+
     @property
     def native_value(self):
         """Return the current value of the sensor in its native unit."""    
