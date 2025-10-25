@@ -48,8 +48,10 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 
                 # Fetch serial number (key 1000) and FW version (key 1003) to validate the device
-                # This is a much more reliable test than fetching key '0'
-                device_info = await api.fetch_data(["1000", "1003"])
+                # WICHTIG: Die API erwartet Zahlen, keine Strings
+                device_info = await api.fetch_data([1000, 1003])
+                
+                # Die API gibt Keys als Strings zurück
                 serial_number = device_info.get("1000")
                 fw_version = device_info.get("1003")
 
@@ -111,4 +113,3 @@ class IndevoltOptionsFlowHandler(config_entries.OptionsFlow):
         })
 
         return self.async_show_form(step_id="init", data_schema=options_schema)
-
