@@ -11,11 +11,10 @@ class IndevoltAPI:
         self.port = port
         self.session = session
         self.base_url = f"http://{host}:{port}/rpc"
-        self.timeout = aiohttp.ClientTimeout(total=60)
+        self.timeout = aiohttp.ClientTimeout(total=15)  # Reduced from 60s for local devices
     
     async def fetch_data(self, keys: List[int]) -> Dict[str, Any]:
         """Fetch raw JSON data from the device"""
-        # KORREKTUR: keys ist jetzt List[int]
         config_param = json.dumps({"t": keys}).replace(" ", "")
         url = f"{self.base_url}/Indevolt.GetData?config={config_param}"
         
@@ -23,7 +22,7 @@ class IndevoltAPI:
             async with self.session.post(url, timeout=self.timeout) as response:
                 if response.status != 200:
                     raise Exception(f"HTTP status error: {response.status}")
-                # Die API gibt Keys als Strings zurück, was für HA korrekt ist.
+                # API returns keys as strings
                 return await response.json()
                 
         except asyncio.TimeoutError:
@@ -47,24 +46,40 @@ class IndevoltAPI:
         except aiohttp.ClientError as err:
             raise Exception(f"Indevolt.SetData Network error: {err}")
 
-    # --- NEUE WARTBARE METHODEN (Optimierung 3) ---
+    # High-level control methods
     
     async def async_set_realtime_mode(self) -> dict[str, Any]:
         """Set the device to real-time control mode (Mode 4)."""
-        # API-Referenz: f=16, t=47005, v=[4]
         return await self.set_data(f=16, t=47005, v=[4])
 
-    async def async_charge(self, power: int) -> dict[str, Any]:
-        """Send command to charge the battery."""
-        # API-Referenz: f=16, t=47015, v=[1 (Charge), power, 100 (Timeout?)]
-        return await self.set_data(f=16, t=47015, v=[1, power, 100])
+    async def async_charge(self, power: int, soc_limit: int = 100) -> dict[str, Any]:
+        """Send command to charge the battery.
+        
+        Args:
+            power: Charging power in Watts (0-1200W)
+            soc_limit: Stop charging when battery reaches this SOC% (0-100)
+        """
+        if not 0 <= power <= 1200:
+            raise ValueError(f"Charging power must be 0-1200W, got {power}W")
+        if not 0 <= soc_limit <= 100:
+            raise ValueError(f"SOC limit must be 0-100%, got {soc_limit}%")
+        
+        return await self.set_data(f=16, t=47015, v=[1, power, soc_limit])
 
-    async def async_discharge(self, power: int) -> dict[str, Any]:
-        """Send command to discharge the battery."""
-        # API-Referenz: f=16, t=47015, v=[2 (Discharge), power, 5 (Timeout?)]
-        return await self.set_data(f=16, t=47015, v=[2, power, 5])
+    async def async_discharge(self, power: int, soc_limit: int = 5) -> dict[str, Any]:
+        """Send command to discharge the battery.
+        
+        Args:
+            power: Discharging power in Watts (0-800W)
+            soc_limit: Stop discharging when battery reaches this SOC% (0-100)
+        """
+        if not 0 <= power <= 800:
+            raise ValueError(f"Discharging power must be 0-800W, got {power}W")
+        if not 0 <= soc_limit <= 100:
+            raise ValueError(f"SOC limit must be 0-100%, got {soc_limit}%")
+        
+        return await self.set_data(f=16, t=47015, v=[2, power, soc_limit])
 
     async def async_stop(self) -> dict[str, Any]:
-        """Send command to stop charge/discharge."""
-        # API-Referenz: f=16, t=47015, v=[0 (Stop), 0, 0]
+        """Send command to stop charge/discharge (standby mode)."""
         return await self.set_data(f=16, t=47015, v=[0, 0, 0])
