@@ -11,24 +11,37 @@ from homeassistant.helpers import device_registry as dr
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN, PLATFORMS, DEFAULT_SCAN_INTERVAL
+# --- MODIFIZIERTE IMPORTE ---
+from .const import (
+    DOMAIN, 
+    PLATFORMS, 
+    DEFAULT_SCAN_INTERVAL,
+    PHYSICAL_MAX_CHARGE_POWER,
+    PHYSICAL_MAX_DISCHARGE_POWER,
+    CONF_MAX_CHARGE_POWER,
+    CONF_MAX_DISCHARGE_POWER
+)
+# --- ENDE MODIFIZIERTE IMPORTE ---
 from .coordinator import IndevoltCoordinator
 from datetime import timedelta
 
 _LOGGER = logging.getLogger(__name__)
 
+# --- MODIFIZIERTE SCHEMAS ---
 # Service schemas with device targeting
+# Use physical max limits for schema validation
 SERVICE_CHARGE_SCHEMA = vol.Schema({
-    vol.Required("power"): vol.All(cv.positive_int, vol.Range(min=0, max=1200)),
+    vol.Required("power"): vol.All(cv.positive_int, vol.Range(min=0, max=PHYSICAL_MAX_CHARGE_POWER)),
     vol.Optional("soc_limit", default=100): vol.All(cv.positive_int, vol.Range(min=0, max=100)),
     vol.Optional("device_id"): cv.string,
 })
 
 SERVICE_DISCHARGE_SCHEMA = vol.Schema({
-    vol.Required("power"): vol.All(cv.positive_int, vol.Range(min=0, max=800)),
+    vol.Required("power"): vol.All(cv.positive_int, vol.Range(min=0, max=PHYSICAL_MAX_DISCHARGE_POWER)),
     vol.Optional("soc_limit", default=5): vol.All(cv.positive_int, vol.Range(min=0, max=100)),
     vol.Optional("device_id"): cv.string,
 })
+# --- ENDE MODIFIZIERTE SCHEMAS ---
 
 SERVICE_DEVICE_SCHEMA = vol.Schema({
     vol.Optional("device_id"): cv.string,
@@ -96,16 +109,33 @@ async def async_register_services(hass: HomeAssistant) -> None:
         
         return coordinators[0]
 
+    # --- MODIFIZIERTER SERVICE HANDLER ---
     async def charge(call: ServiceCall):
         """Handle the service call to start charging."""
         coordinator = await get_coordinator_from_call(call)
         if not coordinator:
             return
         
+        # Get user-defined limit from config options
+        # Fallback to physical limit if not set
+        user_max_charge = coordinator.config_entry.options.get(
+            CONF_MAX_CHARGE_POWER, PHYSICAL_MAX_CHARGE_POWER
+        )
+        
         power = call.data["power"]
         soc_limit = call.data.get("soc_limit", 100)
         
-        _LOGGER.debug("Charge service: power=%sW, soc_limit=%s%%", power, soc_limit)
+        # Clip power to user-defined limit
+        if power > user_max_charge:
+            _LOGGER.warning(
+                "Requested charge power %sW exceeds user limit %sW. "
+                "Clipping to %sW.",
+                power, user_max_charge, user_max_charge
+            )
+            power = user_max_charge
+
+        _LOGGER.debug("Charge service: final_power=%sW, soc_limit=%s%% (User limit: %sW)", 
+                      power, soc_limit, user_max_charge)
         try:
             await coordinator.api.async_charge(power, soc_limit)
         except Exception as err:
@@ -117,14 +147,31 @@ async def async_register_services(hass: HomeAssistant) -> None:
         if not coordinator:
             return
         
+        # Get user-defined limit from config options
+        # Fallback to physical limit if not set
+        user_max_discharge = coordinator.config_entry.options.get(
+            CONF_MAX_DISCHARGE_POWER, PHYSICAL_MAX_DISCHARGE_POWER
+        )
+
         power = call.data["power"]
         soc_limit = call.data.get("soc_limit", 5)
+
+        # Clip power to user-defined limit
+        if power > user_max_discharge:
+            _LOGGER.warning(
+                "Requested discharge power %sW exceeds user limit %sW. "
+                "Clipping to %sW.",
+                power, user_max_discharge, user_max_discharge
+            )
+            power = user_max_discharge
         
-        _LOGGER.debug("Discharge service: power=%sW, soc_limit=%s%%", power, soc_limit)
+        _LOGGER.debug("Discharge service: final_power=%sW, soc_limit=%s%% (User limit: %sW)", 
+                      power, soc_limit, user_max_discharge)
         try:
             await coordinator.api.async_discharge(power, soc_limit)
         except Exception as err:
             _LOGGER.error("Failed to execute discharge command: %s", err)
+    # --- ENDE MODIFIKATION ---
 
     async def stop(call: ServiceCall):
         """Handle the service call to stop the battery."""
@@ -184,6 +231,21 @@ async def async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None
     """Handle options update."""
     coordinator: IndevoltCoordinator = hass.data[DOMAIN][entry.entry_id]
     
+    # This function is called when ANY option is changed
+    
+    # Handle scan_interval update
     new_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
-    coordinator.update_interval = timedelta(seconds=new_interval)
-    _LOGGER.info("Indevolt scan interval updated to %s seconds", new_interval)
+    if coordinator.update_interval.seconds != new_interval:
+        coordinator.update_interval = timedelta(seconds=new_interval)
+        _LOGGER.info("Indevolt scan interval updated to %s seconds", new_interval)
+
+    # Log changes to power limits
+    # The new values are automatically read by the service handlers, 
+    # so no coordinator property needs to be updated here.
+    if CONF_MAX_CHARGE_POWER in entry.options:
+        _LOGGER.info("Indevolt max charge power updated to %sW", 
+                     entry.options[CONF_MAX_CHARGE_POWER])
+    
+    if CONF_MAX_DISCHARGE_POWER in entry.options:
+        _LOGGER.info("Indevolt max discharge power updated to %sW", 
+                     entry.options[CONF_MAX_DISCHARGE_POWER])
