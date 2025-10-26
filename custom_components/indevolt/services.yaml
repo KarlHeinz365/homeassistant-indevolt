@@ -1,8 +1,10 @@
+# Describes the services for the inDevolt integration
+
 set_realtime_mode:
   name: Set Real-Time Mode
   description: >
     Puts the device into real-time control mode (Mode 4).
-    This should be called once after a Home Assistant restart to ensure reliable operation.
+    This should be called once after Home Assistant restart to ensure reliable operation.
   fields:
     device_id:
       name: Device
@@ -13,25 +15,25 @@ set_realtime_mode:
         device:
           integration: indevolt
 
-# --- MODIFIZIERT ---
 charge:
   name: Charge Battery
-  description: Tells the battery to start charging from grid or solar.
+  description: >
+    Tells the battery to start charging from grid or solar.
+    Power limit is enforced based on your device configuration.
   fields:
     power:
       name: Power
-      # Update description to reflect new physical max
-      description: The charging power in Watts (0-2400W).
+      description: >
+        The charging power in Watts.
+        Maximum is determined by your device's configured limit (Settings > Devices & Services > inDevolt > Configure).
       required: true
       example: 500
       selector:
         number:
           min: 0
-          # Update UI selector max to new physical max
-          max: 2400
+          max: 1200
           unit_of_measurement: "W"
     soc_limit:
-# --- ENDE MODIFIKATION ---
       name: SOC Limit
       description: Stop charging when battery reaches this SOC percentage.
       required: false
@@ -53,11 +55,15 @@ charge:
 
 discharge:
   name: Discharge Battery
-  description: Tells the battery to start discharging to power your home.
+  description: >
+    Tells the battery to start discharging to power your home.
+    Power limit is enforced based on your device configuration.
   fields:
     power:
       name: Power
-      description: The discharging power in Watts (0-800W).
+      description: >
+        The discharging power in Watts.
+        Maximum is determined by your device's configured limit (Settings > Devices & Services > inDevolt > Configure).
       required: true
       example: 300
       selector:
@@ -67,33 +73,3 @@ discharge:
           unit_of_measurement: "W"
     soc_limit:
       name: SOC Limit
-      description: Stop discharging when battery reaches this SOC percentage.
-      required: false
-      default: 5
-      example: 10
-      selector:
-        number:
-          min: 0
-          max: 100
-          unit_of_measurement: "%"
-    device_id:
-      name: Device
-      description: The device to control (optional if only one device).
-      required: false
-      example: "abc123"
-      selector:
-        device:
-          integration: indevolt
-
-stop:
-  name: Stop Battery
-  description: Puts the battery into standby mode, stopping any active charging or discharging.
-  fields:
-    device_id:
-      name: Device
-      description: The device to control (optional if only one device).
-      required: false
-      example: "abc123"
-      selector:
-        device:
-          integration: indevolt
