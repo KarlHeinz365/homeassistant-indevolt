@@ -3,10 +3,6 @@ import aiohttp
 import json
 from typing import Dict, Any, List
 
-# --- NEUER IMPORT ---
-from .const import PHYSICAL_MAX_CHARGE_POWER, PHYSICAL_MAX_DISCHARGE_POWER
-# --- ENDE NEUER IMPORT ---
-
 class IndevoltAPI:
     """Handles all HTTP communication with Indevolt devices"""
     
@@ -56,37 +52,31 @@ class IndevoltAPI:
         """Set the device to real-time control mode (Mode 4)."""
         return await self.set_data(f=16, t=47005, v=[4])
 
-    # --- MODIFIZIERT ---
-    async def async_charge(self, power: int, soc_limit: int = 100) -> dict[str, Any]:
+    async def async_charge(self, power: int, soc_limit: int = 100, max_power: int = 1200) -> dict[str, Any]:
         """Send command to charge the battery.
         
         Args:
-            power: Charging power in Watts (0-2400W)
+            power: Charging power in Watts
             soc_limit: Stop charging when battery reaches this SOC% (0-100)
+            max_power: Maximum allowed charging power (from config)
         """
-        # Use constant for physical validation
-        if not 0 <= power <= PHYSICAL_MAX_CHARGE_POWER:
-            raise ValueError(
-                f"Charging power must be 0-{PHYSICAL_MAX_CHARGE_POWER}W, got {power}W"
-            )
+        if not 0 <= power <= max_power:
+            raise ValueError(f"Charging power must be 0-{max_power}W, got {power}W")
         if not 0 <= soc_limit <= 100:
             raise ValueError(f"SOC limit must be 0-100%, got {soc_limit}%")
         
         return await self.set_data(f=16, t=47015, v=[1, power, soc_limit])
 
-    async def async_discharge(self, power: int, soc_limit: int = 5) -> dict[str, Any]:
+    async def async_discharge(self, power: int, soc_limit: int = 5, max_power: int = 800) -> dict[str, Any]:
         """Send command to discharge the battery.
         
         Args:
-            power: Discharging power in Watts (0-800W)
+            power: Discharging power in Watts
             soc_limit: Stop discharging when battery reaches this SOC% (0-100)
+            max_power: Maximum allowed discharging power (from config)
         """
-        # Use constant for physical validation
-        if not 0 <= power <= PHYSICAL_MAX_DISCHARGE_POWER:
-            raise ValueError(
-                f"Discharging power must be 0-{PHYSICAL_MAX_DISCHARGE_POWER}W, got {power}W"
-            )
-        # --- ENDE MODIFIKATION ---
+        if not 0 <= power <= max_power:
+            raise ValueError(f"Discharging power must be 0-{max_power}W, got {power}W")
         if not 0 <= soc_limit <= 100:
             raise ValueError(f"SOC limit must be 0-100%, got {soc_limit}%")
         
