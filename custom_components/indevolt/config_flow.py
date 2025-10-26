@@ -19,7 +19,7 @@ from .const import (
     DEFAULT_MAX_CHARGE_POWER,
     DEFAULT_MAX_DISCHARGE_POWER
 )
-from .indevolt_api import indevoltAPI
+from .indevolt_api import IndevoltAPI  # <-- FIX: Corrected casing from indevoltAPI
 from .utils import get_device_gen
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not 1 <= port <= 65535:
                 errors["port"] = "invalid_port"
             else:
-                api = indevoltAPI(host, port, async_get_clientsession(self.hass))
+                api = IndevoltAPI(host, port, async_get_clientsession(self.hass))  # <-- FIX: Corrected casing
                 
                 try:
                     # Fetch serial number using key 0 (per API documentation)
