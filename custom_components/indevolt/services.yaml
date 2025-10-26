@@ -1,5 +1,3 @@
-# Describes the services for the inDevolt integration
-
 set_realtime_mode:
   name: Set Real-Time Mode
   description: >
@@ -15,21 +13,25 @@ set_realtime_mode:
         device:
           integration: indevolt
 
+# --- MODIFIZIERT ---
 charge:
   name: Charge Battery
   description: Tells the battery to start charging from grid or solar.
   fields:
     power:
       name: Power
-      description: The charging power in Watts (0-1200W).
+      # Update description to reflect new physical max
+      description: The charging power in Watts (0-2400W).
       required: true
       example: 500
       selector:
         number:
           min: 0
-          max: 1200
+          # Update UI selector max to new physical max
+          max: 2400
           unit_of_measurement: "W"
     soc_limit:
+# --- ENDE MODIFIKATION ---
       name: SOC Limit
       description: Stop charging when battery reaches this SOC percentage.
       required: false
