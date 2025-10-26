@@ -144,31 +144,24 @@ When set via the config flow, the integration validates values and the device re
 
 This integration creates a comprehensive set of sensor entities to monitor your device. New in 1.0.3 are additional telemetry sensors for better insight and safer automation logic.
 
-Power / Energy:
-- sensor.indevolt_total_ac_output_power
-- sensor.indevolt_battery_power
-- sensor.indevolt_meter_power (if meter_entity_id not provided)
-- sensor.indevolt_daily_production
-- sensor.indevolt_total_production
-
-Battery:
-- sensor.indevolt_total_battery_soc
-- sensor.indevolt_battery_state (charging / discharging / idle)
-- sensor.indevolt_battery_temperature (new)
-- sensor.indevolt_battery_remaining_time (estimated)
-
-String / Input:
-- sensor.indevolt_dc_string_1_current (new, where applicable)
-- sensor.indevolt_dc_string_1_voltage (new)
-- sensor.indevolt_dc_string_2_current (new)
-- sensor.indevolt_dc_string_2_voltage (new)
-
-Device Info / Status:
-- sensor.indevolt_firmware_version (new)
-- sensor.indevolt_serial_number (new)
-- sensor.indevolt_working_mode
-- sensor.indevolt_meter_connection_status
-- sensor.indevolt.control_status (new) — shows last control command result and timestamp
+- DC Input Power1
+- DC Input Power2
+- DC Input Power3
+- DC Input Power4
+- Total DC Output Power
+- Total AC Output Power
+- Total AC Input Power
+- Total AC Input Energy
+- Daily Production
+- Cumulative Production
+- Rated capacity
+- Battery Power
+- Battery SOC
+- Battery SOC Main Unit
+- Battery Daily Charging Energy
+- Battery Daily Discharging Energy
+- Battery Charge/Discharge State (enum)
+- Meter Connection Status (enum)
 
 Notes:
 - Exact sensor names depend on model and device capabilities.
