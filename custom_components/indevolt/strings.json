@@ -24,7 +24,9 @@
       "init": {
         "title": "inDevolt Settings",
         "data": {
-          "scan_interval": "Update Interval (seconds)"
+          "scan_interval": "Update Interval (seconds)",
+          "max_charge_power": "Maximum Charge Power (W)",
+          "max_discharge_power": "Maximum Discharge Power (W)"
         }
       }
     }
