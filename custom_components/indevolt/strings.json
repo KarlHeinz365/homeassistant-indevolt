@@ -2,18 +2,20 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to your inDevolt Device",
+        "title": "Connect to your indevolt Device",
         "description": "Enter the connection details for your device.",
         "data": {
           "host": "IP Address",
           "port": "Port",
-          "device_model": "Device Model"
+          "device_model": "Device Model",
+          "scan_interval": "Update Interval (seconds)"
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect. Please check the IP address and port, and ensure the device is online.",
-      "unknown": "An unknown error occurred. Please check the Home Assistant logs for more details."
+      "unknown": "An unknown error occurred. Please check the Home Assistant logs for more details.",
+      "invalid_port": "Port must be between 1 and 65535."
     },
     "abort": {
       "already_configured": "This device has already been configured."
@@ -22,9 +24,17 @@
   "options": {
     "step": {
       "init": {
-        "title": "inDevolt Settings",
+        "title": "indevolt Settings",
+        "description": "Configure power limits and update interval.\n\n{charge_info}\n{discharge_info}\n\nNote: Setting limits below device maximums can protect battery longevity and comply with local regulations.",
         "data": {
-          "scan_interval": "Update Interval (seconds)"
+          "scan_interval": "Update Interval (seconds)",
+          "max_charge_power": "Maximum Charge Power (W)",
+          "max_discharge_power": "Maximum Discharge Power (W)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll the device for new data (5-300 seconds)",
+          "max_charge_power": "Maximum allowed charging power in Watts (100-2000W). The device will reject commands exceeding this limit.",
+          "max_discharge_power": "Maximum allowed discharging power in Watts (100-2000W). The device will reject commands exceeding this limit."
         }
       }
     }

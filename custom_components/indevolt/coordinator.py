@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-"""Home Assistant integration for indevolt device."""
-
 import logging
 from typing import Any, Dict
 from datetime import timedelta
@@ -13,12 +11,14 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
 from .indevolt_api import IndevoltAPI
 from .utils import get_device_gen
+from .sensor import SENSORS_GEN1, SENSORS_GEN2
 
 _LOGGER = logging.getLogger(__name__)
 
 class IndevoltCoordinator(DataUpdateCoordinator):
+    """Coordinator for Indevolt device data updates."""
+    
     def __init__(self, hass, entry: ConfigEntry):
-        
         scan_interval = entry.options.get(
             "scan_interval", 
             entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)
@@ -27,18 +27,20 @@ class IndevoltCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name=f"{DOMAIN}_{entry.entry_id}",
             update_interval=timedelta(seconds=scan_interval),
         )
         
         self.config_entry = entry
         self.session = async_get_clientsession(hass)
-        
         self.api = IndevoltAPI(
             host=entry.data['host'],
             port=entry.data['port'],
-            session=async_get_clientsession(self.hass)
+            session=self.session
         )
+        self._consecutive_errors = 0
+        self._max_consecutive_errors = 3
+        self._first_update = True
     
     @property
     def config(self) -> dict:
@@ -48,24 +50,71 @@ class IndevoltCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch latest data from device."""
         try:
-            keys=[]
-            if get_device_gen(self.config["device_model"])==1:
-                keys=[7101,1664,1665,2108,1502,1505,2101,2107,1501,6000,6001,6002,6105,6004,6005,6006,6007,7120,21028]
+            # Generate keys dynamically from sensor definitions
+            if get_device_gen(self.config["device_model"]) == 1:
+                keys = [int(desc.key) for desc in SENSORS_GEN1]
+                sensor_set = "GEN1"
             else:
-                keys=[7101,1664,1665,1666,1667,1501,2108,1502,1505,2101,2107,142,6000,6001,6002,6009,6010,6105,6004,6005,6006,6007,7120,11016,667]
+                keys = [int(desc.key) for desc in SENSORS_GEN2]
+                sensor_set = "GEN2"
             
-            data: Dict[str, Any]={}
-            for key in keys:
-                result=await self.api.fetch_data([key])
-                data.update(result)
+            # Fetch all keys in a single API call
+            _LOGGER.debug("Fetching %d %s keys in single request", len(keys), sensor_set)
+            data = await self.api.fetch_data(keys)
 
+            if not data:
+                _LOGGER.warning("No data received from API")
+                if self.data:
+                    return self.data
+                raise UpdateFailed("No data received from device")
+
+            # On first successful update, log diagnostic info
+            if self._first_update:
+                returned_keys = set(data.keys())
+                requested_keys = set(str(k) for k in keys)
+                
+                missing_keys = requested_keys - returned_keys
+                if missing_keys:
+                    _LOGGER.warning(
+                        "Device did not return data for keys: %s",
+                        sorted(missing_keys)
+                    )
+                
+                _LOGGER.info(
+                    "First update successful. Received %d/%d keys",
+                    len(returned_keys & requested_keys),
+                    len(requested_keys)
+                )
+                self._first_update = False
+
+            # Reset error counter on success
+            self._consecutive_errors = 0
             return data
         
         except Exception as err:
-            _LOGGER.error("API request failed: %s", str(err))
-            return self.data or {}
-        
-        except Exception as err:
-            _LOGGER.exception("Unexpected update error")
-            # KORRIGIERT: "Failed" zu "UpdateFailed" geändert für korrekte Fehlerbehandlung
-            raise UpdateFailed(f"Update failed: {err}") from err
+            self._consecutive_errors += 1
+            
+            # Log with appropriate severity
+            if self._consecutive_errors <= self._max_consecutive_errors:
+                _LOGGER.warning(
+                    "Failed to update (attempt %d/%d): %s",
+                    self._consecutive_errors,
+                    self._max_consecutive_errors,
+                    str(err)
+                )
+            else:
+                _LOGGER.error(
+                    "Persistent connection failure to device: %s",
+                    str(err)
+                )
+            
+            # Return stale data if available, otherwise raise
+            if self.data:
+                _LOGGER.debug("Returning stale data due to update failure")
+                return self.data
+            
+            raise UpdateFailed(f"Failed to fetch data: {err}") from err
+    
+    async def async_shutdown(self) -> None:
+        """Clean up resources."""
+        _LOGGER.debug("Shutting down Indevolt coordinator")
