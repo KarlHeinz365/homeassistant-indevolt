@@ -16,19 +16,17 @@ from .const import (
     DEFAULT_PORT, 
     DEFAULT_SCAN_INTERVAL, 
     SUPPORTED_MODELS,
-    PHYSICAL_MAX_CHARGE_POWER,
-    PHYSICAL_MAX_DISCHARGE_POWER,
-    CONF_MAX_CHARGE_POWER,
-    CONF_MAX_DISCHARGE_POWER
+    DEFAULT_MAX_CHARGE_POWER,
+    DEFAULT_MAX_DISCHARGE_POWER
 )
-from .indevolt_api import IndevoltAPI
+from .indevolt_api import indevoltAPI
 from .utils import get_device_gen
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for inDevolt."""
+class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for indevolt."""
 
     VERSION = 1
 
@@ -36,12 +34,9 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry
-    ) -> IndevoltOptionsFlowHandler:
+    ) -> indevoltOptionsFlowHandler:
         """Get the options flow for this handler."""
-        # --- MODIFIZIERT ---
-        # Pass the config_entry to the handler
-        return IndevoltOptionsFlowHandler(config_entry)
-        # --- ENDE MODIFIKATION ---
+        return indevoltOptionsFlowHandler()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -55,69 +50,71 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_model = user_input["device_model"]
             scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
-            api = IndevoltAPI(host, port, async_get_clientsession(self.hass))
-            
-            try:
-                # Fetch serial number using key 0 (per API documentation)
-                _LOGGER.debug("Attempting to fetch device SN (key 0) for setup")
-                data = await api.fetch_data([0])  # Key 0 is INT
-                serial_number = data.get("0")  # Response key is STRING
+            # Validate port range
+            if not 1 <= port <= 65535:
+                errors["port"] = "invalid_port"
+            else:
+                api = indevoltAPI(host, port, async_get_clientsession(self.hass))
+                
+                try:
+                    # Fetch serial number using key 0 (per API documentation)
+                    _LOGGER.debug("Attempting to fetch device SN (key 0) for setup")
+                    data = await api.fetch_data([0])  # Key 0 is INT
+                    serial_number = data.get("0")  # Response key is STRING
 
-                if not serial_number:
-                    raise ConnectionError(
-                        "Could not retrieve serial number from device (key 0)"
+                    if not serial_number:
+                        raise ConnectionError(
+                            "Could not retrieve serial number from device (key 0)"
+                        )
+                    
+                    # Get firmware version from hardcoded table (no API key available)
+                    device_gen = get_device_gen(device_model)
+                    if device_gen == 1:
+                        fw_version = "V1.3.0A_R006.072_M4848_00000039"
+                    else:
+                        fw_version = "V1.3.09_R00D.012_M4801_00000015"
+                    
+                    _LOGGER.info(
+                        "Successfully connected to indevolt device. SN: %s, FW: %s",
+                        serial_number, fw_version
                     )
-                
-                # Get firmware version from hardcoded table (no API key available)
-                device_gen = get_device_gen(device_model)
-                if device_gen == 1:
-                    fw_version = "V1.3.0A_R006.072_M4848_00000039"
-                else:
-                    fw_version = "V1.3.09_R00D.012_M4801_00000015"
-                
-                _LOGGER.info(
-                    "Successfully connected to Indevolt device. SN: %s, FW: %s",
-                    serial_number, fw_version
-                )
 
-                # Set unique ID to prevent duplicate devices
-                await self.async_set_unique_id(str(serial_number))
-                self._abort_if_unique_id_configured()
+                    # Set unique ID to prevent duplicate devices
+                    await self.async_set_unique_id(str(serial_number))
+                    self._abort_if_unique_id_configured()
 
-                # Data stored in config entry (immutable)
-                data_to_save = {
-                    CONF_HOST: host,
-                    CONF_PORT: port,
-                    "device_model": device_model,
-                    "sn": str(serial_number),
-                    "fw_version": fw_version,
-                }
-                
-                # --- MODIFIZIERT ---
-                # Options (can be changed via options flow)
-                # Set default user limits to the physical max limits
-                options_to_save = {
-                    CONF_SCAN_INTERVAL: scan_interval,
-                    CONF_MAX_CHARGE_POWER: PHYSICAL_MAX_CHARGE_POWER,
-                    CONF_MAX_DISCHARGE_POWER: PHYSICAL_MAX_DISCHARGE_POWER
-                }
-                # --- ENDE MODIFIKATION ---
+                    # Data stored in config entry (immutable)
+                    data_to_save = {
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                        "device_model": device_model,
+                        "sn": str(serial_number),
+                        "fw_version": fw_version,
+                    }
+                    
+                    # Options (can be changed via options flow)
+                    # Set device-specific defaults
+                    options_to_save = {
+                        CONF_SCAN_INTERVAL: scan_interval,
+                        "max_charge_power": DEFAULT_MAX_CHARGE_POWER,
+                        "max_discharge_power": DEFAULT_MAX_DISCHARGE_POWER,
+                    }
 
-                return self.async_create_entry(
-                    title=f"INDEVOLT {serial_number}", 
-                    data=data_to_save,
-                    options=options_to_save
-                )
+                    return self.async_create_entry(
+                        title=f"indevolt {serial_number}", 
+                        data=data_to_save,
+                        options=options_to_save
+                    )
 
-            except (ConnectionError, asyncio.TimeoutError):
-                _LOGGER.warning(
-                    "Failed to connect to Indevolt at %s:%s", 
-                    host, port
-                )
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected exception during setup")
-                errors["base"] = "unknown"
+                except (ConnectionError, asyncio.TimeoutError):
+                    _LOGGER.warning(
+                        "Failed to connect to indevolt at %s:%s", 
+                        host, port
+                    )
+                    errors["base"] = "cannot_connect"
+                except Exception:
+                    _LOGGER.exception("Unexpected exception during setup")
+                    errors["base"] = "unknown"
 
         # Schema for initial setup form
         setup_schema = vol.Schema({
@@ -134,14 +131,8 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
-class IndevoltOptionsFlowHandler(config_entries.OptionsFlow):
+class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
     """Handles options flow for the component."""
-
-    # --- MODIFIZIERT ---
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-    # --- ENDE MODIFIKATION ---
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -150,39 +141,55 @@ class IndevoltOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # --- MODIFIZIERT ---
-        # Get current values from options to use as defaults
-        scan_interval = self.config_entry.options.get(
-            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-        )
-        max_charge = self.config_entry.options.get(
-            CONF_MAX_CHARGE_POWER, PHYSICAL_MAX_CHARGE_POWER
-        )
-        max_discharge = self.config_entry.options.get(
-            CONF_MAX_DISCHARGE_POWER, PHYSICAL_MAX_DISCHARGE_POWER
-        )
+        # Get device generation for contextual defaults
+        device_gen = get_device_gen(self.config_entry.data.get("device_model"))
+        
+        # Device-specific recommended limits
+        if device_gen == 1:
+            charge_description = "BK1600 Ultra: Max 1200W"
+            discharge_description = "BK1600 Ultra: Max 800W (1000W EPS, 800W with micro-inverter)"
+        else:
+            charge_description = "SolidFlex/PowerFlex2000: Max 1200W"
+            discharge_description = "SolidFlex/PowerFlex2000: Max 800W"
 
         # Schema for options form
         options_schema = vol.Schema({
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=scan_interval,
-            ): vol.All(vol.Coerce(int), vol.Range(min=5)),
+                default=self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                ),
+                description={"suggested_value": self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                )}
+            ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
             
-            # Add new options for user-defined power limits
             vol.Optional(
-                CONF_MAX_CHARGE_POWER,
-                default=max_charge,
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=PHYSICAL_MAX_CHARGE_POWER)),
+                "max_charge_power",
+                default=self.config_entry.options.get(
+                    "max_charge_power", DEFAULT_MAX_CHARGE_POWER
+                ),
+                description={"suggested_value": self.config_entry.options.get(
+                    "max_charge_power", DEFAULT_MAX_CHARGE_POWER
+                )}
+            ): vol.All(vol.Coerce(int), vol.Range(min=100, max=2000)),
             
             vol.Optional(
-                CONF_MAX_DISCHARGE_POWER,
-                default=max_discharge,
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=PHYSICAL_MAX_DISCHARGE_POWER)),
+                "max_discharge_power",
+                default=self.config_entry.options.get(
+                    "max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER
+                ),
+                description={"suggested_value": self.config_entry.options.get(
+                    "max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER
+                )}
+            ): vol.All(vol.Coerce(int), vol.Range(min=100, max=2000)),
         })
-        # --- ENDE MODIFIKATION ---
 
         return self.async_show_form(
             step_id="init", 
-            data_schema=options_schema
+            data_schema=options_schema,
+            description_placeholders={
+                "charge_info": charge_description,
+                "discharge_info": discharge_description,
+            }
         )
