@@ -1,7 +1,7 @@
 {
   "name": "indevolt",
   "content_in_root": false,
-  "domains": ["sensor"],
+  "domains": ["indevolt"],
   "country": ["DE"],
   "render_readme": true
 }
