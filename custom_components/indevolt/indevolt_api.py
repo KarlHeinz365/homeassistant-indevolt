@@ -3,6 +3,10 @@ import aiohttp
 import json
 from typing import Dict, Any, List
 
+# --- NEUER IMPORT ---
+from .const import PHYSICAL_MAX_CHARGE_POWER, PHYSICAL_MAX_DISCHARGE_POWER
+# --- ENDE NEUER IMPORT ---
+
 class IndevoltAPI:
     """Handles all HTTP communication with Indevolt devices"""
     
@@ -52,15 +56,19 @@ class IndevoltAPI:
         """Set the device to real-time control mode (Mode 4)."""
         return await self.set_data(f=16, t=47005, v=[4])
 
+    # --- MODIFIZIERT ---
     async def async_charge(self, power: int, soc_limit: int = 100) -> dict[str, Any]:
         """Send command to charge the battery.
         
         Args:
-            power: Charging power in Watts (0-1200W)
+            power: Charging power in Watts (0-2400W)
             soc_limit: Stop charging when battery reaches this SOC% (0-100)
         """
-        if not 0 <= power <= 1200:
-            raise ValueError(f"Charging power must be 0-1200W, got {power}W")
+        # Use constant for physical validation
+        if not 0 <= power <= PHYSICAL_MAX_CHARGE_POWER:
+            raise ValueError(
+                f"Charging power must be 0-{PHYSICAL_MAX_CHARGE_POWER}W, got {power}W"
+            )
         if not 0 <= soc_limit <= 100:
             raise ValueError(f"SOC limit must be 0-100%, got {soc_limit}%")
         
@@ -73,8 +81,12 @@ class IndevoltAPI:
             power: Discharging power in Watts (0-800W)
             soc_limit: Stop discharging when battery reaches this SOC% (0-100)
         """
-        if not 0 <= power <= 800:
-            raise ValueError(f"Discharging power must be 0-800W, got {power}W")
+        # Use constant for physical validation
+        if not 0 <= power <= PHYSICAL_MAX_DISCHARGE_POWER:
+            raise ValueError(
+                f"Discharging power must be 0-{PHYSICAL_MAX_DISCHARGE_POWER}W, got {power}W"
+            )
+        # --- ENDE MODIFIKATION ---
         if not 0 <= soc_limit <= 100:
             raise ValueError(f"SOC limit must be 0-100%, got {soc_limit}%")
         
