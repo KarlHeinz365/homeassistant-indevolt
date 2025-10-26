@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to your inDevolt Device",
+        "title": "Connect to your indevolt Device",
         "description": "Enter the connection details for your device.",
         "data": {
           "host": "IP Address",
@@ -22,7 +22,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "inDevolt Settings",
+        "title": "indevolt Settings",
         "data": {
           "scan_interval": "Update Interval (seconds)",
           "max_charge_power": "Maximum Charge Power (W)",
