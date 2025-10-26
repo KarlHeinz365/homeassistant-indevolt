@@ -1,4 +1,4 @@
-"""Config flow for inDevolt integration."""
+"""Config flow for indevolt integration."""
 from __future__ import annotations
 
 import logging
@@ -11,7 +11,16 @@ from homeassistant.core import callback
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, SUPPORTED_MODELS
+from .const import (
+    DOMAIN, 
+    DEFAULT_PORT, 
+    DEFAULT_SCAN_INTERVAL, 
+    SUPPORTED_MODELS,
+    PHYSICAL_MAX_CHARGE_POWER,
+    PHYSICAL_MAX_DISCHARGE_POWER,
+    CONF_MAX_CHARGE_POWER,
+    CONF_MAX_DISCHARGE_POWER
+)
 from .indevolt_api import IndevoltAPI
 from .utils import get_device_gen
 
@@ -29,7 +38,10 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry
     ) -> IndevoltOptionsFlowHandler:
         """Get the options flow for this handler."""
-        return IndevoltOptionsFlowHandler()
+        # --- MODIFIZIERT ---
+        # Pass the config_entry to the handler
+        return IndevoltOptionsFlowHandler(config_entry)
+        # --- ENDE MODIFIKATION ---
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -81,10 +93,15 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "fw_version": fw_version,
                 }
                 
+                # --- MODIFIZIERT ---
                 # Options (can be changed via options flow)
+                # Set default user limits to the physical max limits
                 options_to_save = {
-                    CONF_SCAN_INTERVAL: scan_interval
+                    CONF_SCAN_INTERVAL: scan_interval,
+                    CONF_MAX_CHARGE_POWER: PHYSICAL_MAX_CHARGE_POWER,
+                    CONF_MAX_DISCHARGE_POWER: PHYSICAL_MAX_DISCHARGE_POWER
                 }
+                # --- ENDE MODIFIKATION ---
 
                 return self.async_create_entry(
                     title=f"INDEVOLT {serial_number}", 
@@ -120,6 +137,12 @@ class IndevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class IndevoltOptionsFlowHandler(config_entries.OptionsFlow):
     """Handles options flow for the component."""
 
+    # --- MODIFIZIERT ---
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+    # --- ENDE MODIFIKATION ---
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
@@ -127,15 +150,37 @@ class IndevoltOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        # --- MODIFIZIERT ---
+        # Get current values from options to use as defaults
+        scan_interval = self.config_entry.options.get(
+            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+        )
+        max_charge = self.config_entry.options.get(
+            CONF_MAX_CHARGE_POWER, PHYSICAL_MAX_CHARGE_POWER
+        )
+        max_discharge = self.config_entry.options.get(
+            CONF_MAX_DISCHARGE_POWER, PHYSICAL_MAX_DISCHARGE_POWER
+        )
+
         # Schema for options form
         options_schema = vol.Schema({
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=self.config_entry.options.get(
-                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                ),
+                default=scan_interval,
             ): vol.All(vol.Coerce(int), vol.Range(min=5)),
+            
+            # Add new options for user-defined power limits
+            vol.Optional(
+                CONF_MAX_CHARGE_POWER,
+                default=max_charge,
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=PHYSICAL_MAX_CHARGE_POWER)),
+            
+            vol.Optional(
+                CONF_MAX_DISCHARGE_POWER,
+                default=max_discharge,
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=PHYSICAL_MAX_DISCHARGE_POWER)),
         })
+        # --- ENDE MODIFIKATION ---
 
         return self.async_show_form(
             step_id="init", 
