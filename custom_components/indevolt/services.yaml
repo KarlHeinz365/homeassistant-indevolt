@@ -1,4 +1,4 @@
-# Describes the services for the inDevolt integration
+# Describes the services for the indevolt integration
 
 set_realtime_mode:
   name: Set Real-Time Mode
@@ -73,3 +73,34 @@ discharge:
           unit_of_measurement: "W"
     soc_limit:
       name: SOC Limit
+      description: Stop discharging when battery reaches this SOC percentage.
+      required: false
+      default: 5
+      example: 10
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    device_id:
+      name: Device
+      description: The device to control (optional if only one device).
+      required: false
+      example: "abc123"
+      selector:
+        device:
+          integration: indevolt
+
+stop:
+  name: Stop Battery
+  description: >
+    Puts the battery into standby mode, stopping any active charging or discharging.
+  fields:
+    device_id:
+      name: Device
+      description: The device to control (optional if only one device).
+      required: false
+      example: "abc123"
+      selector:
+        device:
+          integration: indevolt
