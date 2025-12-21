@@ -38,7 +38,7 @@ SENSORS_GEN1: Final = (
     IndevoltSensorEntityDescription(key="6007", name="Battery Total Discharging Energy", native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, device_class=SensorDeviceClass.ENERGY, state_class=SensorStateClass.TOTAL_INCREASING),
     IndevoltSensorEntityDescription(key="21028", name="Meter Power", native_unit_of_measurement=UnitOfPower.WATT, device_class=SensorDeviceClass.POWER, state_class=SensorStateClass.MEASUREMENT),
     IndevoltSensorEntityDescription(key="7101", name="Working Mode", state_mapping={0: "Portable", 1: "Self-consumed", 2: "Schedule", 4: "Real-time", 5: "Schedule"}, device_class=SensorDeviceClass.ENUM),
-    IndevoltSensorEntityDescription(key="6001", name="Battery State", state_mapping={1000: "Static", 1001: "Charging", 1002: "Discharging"}, device_class=SensorDeviceClass.ENUM),
+    IndevoltSensorEntityDescription(key="6001", name="Battery Charge/Discharge State", state_mapping={1000: "Static", 1001: "Charging", 1002: "Discharging"}, device_class=SensorDeviceClass.ENUM),
     IndevoltSensorEntityDescription(key="7120", name="Meter Status", state_mapping={1000: "ON", 1001: "OFF"}, device_class=SensorDeviceClass.ENUM),
 )
 
@@ -56,6 +56,7 @@ SENSORS_GEN2: Final = (
     IndevoltSensorEntityDescription(key="6002", name="Battery SOC", native_unit_of_measurement=PERCENTAGE, device_class=SensorDeviceClass.BATTERY, state_class=SensorStateClass.MEASUREMENT),
     IndevoltSensorEntityDescription(key="6004", name="Battery Daily Charging Energy", native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, device_class=SensorDeviceClass.ENERGY, state_class=SensorStateClass.TOTAL_INCREASING),
     IndevoltSensorEntityDescription(key="6005", name="Battery Daily Discharging Energy", native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, device_class=SensorDeviceClass.ENERGY, state_class=SensorStateClass.TOTAL_INCREASING),
+    IndevoltSensorEntityDescription(key="6001", name="Battery Charge/Discharge State", state_mapping={1000: "Static", 1001: "Charging", 1002: "Discharging"}, device_class=SensorDeviceClass.ENUM),
     IndevoltSensorEntityDescription(key="7101", name="Working Mode", state_mapping={1: "Self-consumed", 2: "Schedule", 4: "Real-time", 5: "Schedule"}, device_class=SensorDeviceClass.ENUM),
     IndevoltSensorEntityDescription(key="667", name="Bypass Power", native_unit_of_measurement=UnitOfPower.WATT, device_class=SensorDeviceClass.POWER, state_class=SensorStateClass.MEASUREMENT),
 )
@@ -74,7 +75,6 @@ class IndevoltSensorEntity(CoordinatorEntity, SensorEntity, RestoreEntity):
         self._last_valid_value = None
         self._last_update_date = dt_util.now().date()
         sn = coordinator.config_entry.data.get("sn", "unknown")
-        # RESTORED: This includes entry_id to match old code and prevent duplicates
         self._attr_unique_id = f"{DOMAIN}_{sn}_{coordinator.config_entry.entry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, coordinator.config_entry.entry_id)}, name=f"INDEVOLT {sn}")
 
@@ -89,11 +89,9 @@ class IndevoltSensorEntity(CoordinatorEntity, SensorEntity, RestoreEntity):
         current_date = dt_util.now().date()
         if self.entity_description.state_class == SensorStateClass.TOTAL_INCREASING:
             if self._last_valid_value is not None:
-                # Same day: Block intraday reset glitches
                 if current_date == self._last_update_date:
                     if new_value < (self._last_valid_value - 0.1):
                         return self._last_valid_value
-                # New day: Accept the reset (end of day/midnight)
                 else:
                     _LOGGER.info("Accepting daily reset for %s", self.entity_id)
             self._last_valid_value = new_value
