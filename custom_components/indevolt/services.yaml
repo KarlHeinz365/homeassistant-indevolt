@@ -4,13 +4,40 @@ set_realtime_mode:
   name: Set Real-Time Mode
   description: >
     Puts the device into real-time control mode (Mode 4).
-    This should be called once after Home Assistant restart to ensure reliable operation.
+    This mode is required for manual charge/discharge power control.
   fields:
     device_id:
       name: Device
-      description: The device to control (optional if only one device).
+      description: The device to control.
       required: false
-      example: "abc123"
+      selector:
+        device:
+          integration: indevolt
+
+set_self_consumption_mode:
+  name: Set Self-Consumption Mode
+  description: >
+    Sets the device to "Self-consumed Prioritized" (Mode 1).
+    Optimizes for local solar consumption.
+  fields:
+    device_id:
+      name: Device
+      description: The device to control.
+      required: false
+      selector:
+        device:
+          integration: indevolt
+
+set_schedule_mode:
+  name: Set Schedule Mode
+  description: >
+    Sets the device to "Charge/Discharge Schedule" (Mode 2).
+    Follows internal timer settings configured in the device app.
+  fields:
+    device_id:
+      name: Device
+      description: The device to control.
+      required: false
       selector:
         device:
           integration: indevolt
@@ -18,27 +45,22 @@ set_realtime_mode:
 charge:
   name: Charge Battery
   description: >
-    Tells the battery to start charging from grid or solar.
-    Power limit is enforced based on your device configuration.
+    Start charging. Note: Device must be in Real-time mode (Mode 4) first.
   fields:
     power:
       name: Power
-      description: >
-        The charging power in Watts.
-        Maximum is determined by your device's configured limit (Settings > Devices & Services > inDevolt > Configure).
+      description: Charging power in Watts.
       required: true
-      example: 500
       selector:
         number:
           min: 0
-          max: 1200
+          max: 2000
           unit_of_measurement: "W"
     soc_limit:
       name: SOC Limit
-      description: Stop charging when battery reaches this SOC percentage.
+      description: Stop at this % SOC.
       required: false
       default: 100
-      example: 90
       selector:
         number:
           min: 0
@@ -46,9 +68,8 @@ charge:
           unit_of_measurement: "%"
     device_id:
       name: Device
-      description: The device to control (optional if only one device).
+      description: The device to control.
       required: false
-      example: "abc123"
       selector:
         device:
           integration: indevolt
@@ -56,27 +77,22 @@ charge:
 discharge:
   name: Discharge Battery
   description: >
-    Tells the battery to start discharging to power your home.
-    Power limit is enforced based on your device configuration.
+    Start discharging. Note: Device must be in Real-time mode (Mode 4) first.
   fields:
     power:
       name: Power
-      description: >
-        The discharging power in Watts.
-        Maximum is determined by your device's configured limit (Settings > Devices & Services > inDevolt > Configure).
+      description: Discharging power in Watts.
       required: true
-      example: 300
       selector:
         number:
           min: 0
-          max: 800
+          max: 2000
           unit_of_measurement: "W"
     soc_limit:
       name: SOC Limit
-      description: Stop discharging when battery reaches this SOC percentage.
+      description: Stop at this % SOC.
       required: false
       default: 5
-      example: 10
       selector:
         number:
           min: 0
@@ -84,23 +100,20 @@ discharge:
           unit_of_measurement: "%"
     device_id:
       name: Device
-      description: The device to control (optional if only one device).
+      description: The device to control.
       required: false
-      example: "abc123"
       selector:
         device:
           integration: indevolt
 
 stop:
   name: Stop Battery
-  description: >
-    Puts the battery into standby mode, stopping any active charging or discharging.
+  description: Puts the battery into standby mode (Mode 0).
   fields:
     device_id:
       name: Device
-      description: The device to control (optional if only one device).
+      description: The device to control.
       required: false
-      example: "abc123"
       selector:
         device:
           integration: indevolt
