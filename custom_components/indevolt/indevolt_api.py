@@ -85,3 +85,16 @@ class IndevoltAPI:
     async def async_stop(self) -> dict[str, Any]:
         """Send command to stop charge/discharge (standby mode)."""
         return await self.set_data(f=16, t=47015, v=[0, 0, 0])
+    # High-level control methods inside IndevoltAPI class
+    
+    async def async_set_self_consumption_mode(self) -> dict[str, Any]:
+        """Set the device to Self-consumed Prioritized (Mode 1)."""
+        return await self.set_data(f=16, t=47005, v=[1])
+
+    async def async_set_schedule_mode(self) -> dict[str, Any]:
+        """Set the device to Charge/Discharge Schedule (Mode 2)."""
+        return await self.set_data(f=16, t=47005, v=[2])
+
+    async def async_set_realtime_mode(self) -> dict[str, Any]:
+        """Set the device to real-time control mode (Mode 4)."""
+        return await self.set_data(f=16, t=47005, v=[4])
