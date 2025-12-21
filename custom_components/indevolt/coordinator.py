@@ -20,27 +20,26 @@ class IndevoltCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=f"{DOMAIN}_{entry.entry_id}", update_interval=timedelta(seconds=scan_interval))
         self.config_entry = entry
         self.api = IndevoltAPI(host=entry.data['host'], port=entry.data['port'], session=async_get_clientsession(hass))
-        self._consecutive_errors = 0
         self._first_update = True
 
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch latest data from device."""
         try:
-            # Dynamically select sensors based on generation
+            # Select correct sensor list based on model
             gen = get_device_gen(self.config_entry.data.get("device_model"))
             sensor_list = SENSORS_GEN1 if gen == 1 else SENSORS_GEN2
-            keys = [int(desc.key) for desc in sensor_list] # Fixed: No ellipsis here
+            
+            # Extract keys as integers for the API call
+            keys = [int(desc.key) for desc in sensor_list]
             
             data = await self.api.fetch_data(keys)
             if not data:
-                if self.data: return self.data
                 raise UpdateFailed("No data received from device")
 
-            self._consecutive_errors = 0
-            self._first_update = False
+            if self._first_update:
+                _LOGGER.info("Successfully connected to Indevolt device")
+                self._first_update = False
+
             return data
-        
         except Exception as err:
-            self._consecutive_errors += 1
-            if self.data: return self.data
             raise UpdateFailed(f"Failed to fetch data: {err}") from err
