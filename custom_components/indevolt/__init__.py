@@ -27,8 +27,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register integration-level services."""
     async def get_coord():
+        # Retrieves the first available coordinator instance
         return list(hass.data[DOMAIN].values())[0]
 
+    # --- Existing Power Control Services ---
     async def charge(call: ServiceCall):
         coord = await get_coord()
         await coord.api.async_charge(call.data["power"], call.data.get("soc_limit", 100))
@@ -41,9 +43,32 @@ async def async_register_services(hass: HomeAssistant) -> None:
         coord = await get_coord()
         await coord.api.async_stop()
 
+    # --- New Working Mode Services ---
+    async def set_self_consumption_mode(call: ServiceCall):
+        """Sets device to Mode 1 (Self-consumed prioritized)."""
+        coord = await get_coord()
+        await coord.api.async_set_mode(1)
+
+    async def set_schedule_mode(call: ServiceCall):
+        """Sets device to Mode 2 (Schedule)."""
+        # Note: PDF Source 489 specifies value 2 for Schedule mode in register 47005
+        coord = await get_coord()
+        await coord.api.async_set_mode(2)
+
+    async def set_realtime_mode(call: ServiceCall):
+        """Sets device to Mode 4 (Real-time control)."""
+        # Required before using charge/discharge commands manually
+        coord = await get_coord()
+        await coord.api.async_set_mode(4)
+
+    # Register all services
     hass.services.async_register(DOMAIN, "charge", charge)
     hass.services.async_register(DOMAIN, "discharge", discharge)
     hass.services.async_register(DOMAIN, "stop", stop)
+    
+    hass.services.async_register(DOMAIN, "set_self_consumption_mode", set_self_consumption_mode)
+    hass.services.async_register(DOMAIN, "set_schedule_mode", set_schedule_mode)
+    hass.services.async_register(DOMAIN, "set_realtime_mode", set_realtime_mode)
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
