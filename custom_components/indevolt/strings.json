@@ -31,7 +31,7 @@
           "max_charge_power": "Max Charge Power",
           "max_discharge_power": "Max Discharge Power",
           "virtual_min_soc": "Virtual Min-SOC",
-          "is_main_device": "Main Device (Cluster)"
+          "is_main_device": "Main Device (Cluster Mode)"
         },
         "data_description": {
           "scan_interval": "Polling frequency in seconds (5-300)",
