@@ -24,21 +24,21 @@
   "options": {
     "step": {
       "init": {
-        "title": "indevolt Settings",
-        "description": "{info}",
+        "title": "INDEVOLT Configuration",
+        "description": "**Power Limits**\n{charge_info}\n{discharge_info}\n\n**Safety & Cluster Settings**\nVirtual Min-SOC protects your battery from deep discharge. Commands are blocked when SOC reaches this level.{main_device_warning}",
         "data": {
-          "scan_interval": "Update Interval (seconds)",
-          "max_charge_power": "Maximum Charge Power (W)",
-          "max_discharge_power": "Maximum Discharge Power (W)",
-          "virtual_min_soc": "Virtual Minimum SOC (%)",
-          "is_main_device": "Main Device (Cluster Mode)"
+          "scan_interval": "Update Interval",
+          "max_charge_power": "Max Charge Power",
+          "max_discharge_power": "Max Discharge Power",
+          "virtual_min_soc": "Virtual Min-SOC",
+          "is_main_device": "Main Device (Cluster)"
         },
         "data_description": {
-          "scan_interval": "How often to poll the device for new data (5-300 seconds)",
-          "max_charge_power": "Maximum allowed charging power in Watts (100-2000W). The device will reject commands exceeding this limit.",
-          "max_discharge_power": "Maximum allowed discharging power in Watts (100-2000W). The device will reject commands exceeding this limit.",
-          "virtual_min_soc": "Minimum SOC percentage (0-50%). Charge/discharge commands will be blocked when battery reaches this level to protect battery health.",
-          "is_main_device": "Enable if this device is the main unit in a cluster configuration. Cluster commands will only be sent to the main device."
+          "scan_interval": "Polling frequency in seconds (5-300)",
+          "max_charge_power": "Maximum charging power in Watts (100-2000W)",
+          "max_discharge_power": "Maximum discharging power in Watts (100-2000W)",
+          "virtual_min_soc": "Safety threshold: Block charge/discharge below this SOC (0-50%)",
+          "is_main_device": "Enable if this is your primary device in a cluster setup"
         }
       }
     }
