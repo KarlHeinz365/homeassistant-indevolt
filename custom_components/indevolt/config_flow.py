@@ -17,9 +17,10 @@ from .const import (
     DEFAULT_SCAN_INTERVAL, 
     SUPPORTED_MODELS,
     DEFAULT_MAX_CHARGE_POWER,
-    DEFAULT_MAX_DISCHARGE_POWER
+    DEFAULT_MAX_DISCHARGE_POWER,
+    DEFAULT_VIRTUAL_MIN_SOC
 )
-from .indevolt_api import IndevoltAPI  # <-- FIX: Corrected casing from indevoltAPI
+from .indevolt_api import IndevoltAPI
 from .utils import get_device_gen
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not 1 <= port <= 65535:
                 errors["port"] = "invalid_port"
             else:
-                api = IndevoltAPI(host, port, async_get_clientsession(self.hass))  # <-- FIX: Corrected casing
+                api = IndevoltAPI(host, port, async_get_clientsession(self.hass))
                 
                 try:
                     # Fetch serial number using key 0 (per API documentation)
@@ -93,11 +94,12 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                     
                     # Options (can be changed via options flow)
-                    # Set device-specific defaults
                     options_to_save = {
                         CONF_SCAN_INTERVAL: scan_interval,
                         "max_charge_power": DEFAULT_MAX_CHARGE_POWER,
                         "max_discharge_power": DEFAULT_MAX_DISCHARGE_POWER,
+                        "virtual_min_soc": DEFAULT_VIRTUAL_MIN_SOC,
+                        "is_main_device": False,  # Default: not main device
                     }
 
                     return self.async_create_entry(
@@ -152,6 +154,15 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
             charge_description = "SolidFlex/PowerFlex2000: Max 1200W"
             discharge_description = "SolidFlex/PowerFlex2000: Max 800W"
 
+        # Check if other devices exist and if any is already main
+        existing_main = False
+        if self.hass.data.get(DOMAIN):
+            for entry_id, coord in self.hass.data[DOMAIN].items():
+                if entry_id != self.config_entry.entry_id:
+                    if coord.config_entry.options.get("is_main_device", False):
+                        existing_main = True
+                        break
+
         # Schema for options form
         options_schema = vol.Schema({
             vol.Optional(
@@ -159,9 +170,6 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
                 default=self.config_entry.options.get(
                     CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                 ),
-                description={"suggested_value": self.config_entry.options.get(
-                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                )}
             ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
             
             vol.Optional(
@@ -169,9 +177,6 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
                 default=self.config_entry.options.get(
                     "max_charge_power", DEFAULT_MAX_CHARGE_POWER
                 ),
-                description={"suggested_value": self.config_entry.options.get(
-                    "max_charge_power", DEFAULT_MAX_CHARGE_POWER
-                )}
             ): vol.All(vol.Coerce(int), vol.Range(min=100, max=2000)),
             
             vol.Optional(
@@ -179,17 +184,43 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
                 default=self.config_entry.options.get(
                     "max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER
                 ),
-                description={"suggested_value": self.config_entry.options.get(
-                    "max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER
-                )}
             ): vol.All(vol.Coerce(int), vol.Range(min=100, max=2000)),
+            
+            vol.Optional(
+                "virtual_min_soc",
+                default=self.config_entry.options.get(
+                    "virtual_min_soc", DEFAULT_VIRTUAL_MIN_SOC
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=50)),
+            
+            vol.Optional(
+                "is_main_device",
+                default=self.config_entry.options.get("is_main_device", False),
+            ): bool,
         })
+
+        description_text = (
+            f"Configure power limits and update interval.\n\n"
+            f"{charge_description}\n{discharge_description}\n\n"
+            f"Virtual Min-SOC: Safety limit to prevent deep discharge. "
+            f"Charge/discharge commands will be blocked when SOC reaches this level.\n\n"
+        )
+        
+        if existing_main:
+            description_text += (
+                "⚠️ Another device is already set as Main Device for cluster mode. "
+                "Setting this device as main will override the previous main device."
+            )
+        else:
+            description_text += (
+                "Main Device: Enable this if you have multiple devices in cluster mode. "
+                "Only the main device will receive cluster commands."
+            )
 
         return self.async_show_form(
             step_id="init", 
             data_schema=options_schema,
             description_placeholders={
-                "charge_info": charge_description,
-                "discharge_info": discharge_description,
+                "info": description_text,
             }
         )
