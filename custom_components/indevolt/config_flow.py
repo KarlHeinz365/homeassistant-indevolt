@@ -163,7 +163,7 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
                         existing_main = True
                         break
 
-        # Schema for options form
+        # Schema for options form with proper selectors
         options_schema = vol.Schema({
             vol.Optional(
                 CONF_SCAN_INTERVAL,
@@ -199,28 +199,17 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
             ): bool,
         })
 
-        description_text = (
-            f"Configure power limits and update interval.\n\n"
-            f"{charge_description}\n{discharge_description}\n\n"
-            f"Virtual Min-SOC: Safety limit to prevent deep discharge. "
-            f"Charge/discharge commands will be blocked when SOC reaches this level.\n\n"
-        )
-        
+        # Build contextual description
+        main_device_info = ""
         if existing_main:
-            description_text += (
-                "⚠️ Another device is already set as Main Device for cluster mode. "
-                "Setting this device as main will override the previous main device."
-            )
-        else:
-            description_text += (
-                "Main Device: Enable this if you have multiple devices in cluster mode. "
-                "Only the main device will receive cluster commands."
-            )
-
+            main_device_info = "\n\n⚠️ **Cluster Mode**: Another device is already configured as Main Device."
+        
         return self.async_show_form(
             step_id="init", 
             data_schema=options_schema,
             description_placeholders={
-                "info": description_text,
+                "charge_info": charge_description,
+                "discharge_info": discharge_description,
+                "main_device_warning": main_device_info,
             }
         )
