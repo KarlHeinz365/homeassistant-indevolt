@@ -164,39 +164,57 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
                         break
 
         # Schema for options form with proper selectors
+        from homeassistant.helpers import selector
+        
         options_schema = vol.Schema({
             vol.Optional(
                 CONF_SCAN_INTERVAL,
                 default=self.config_entry.options.get(
                     CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=5, max=300, step=1, unit_of_measurement="s", mode=selector.NumberSelectorMode.BOX
+                )
+            ),
             
             vol.Optional(
                 "max_charge_power",
                 default=self.config_entry.options.get(
                     "max_charge_power", DEFAULT_MAX_CHARGE_POWER
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=100, max=2000)),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
+                )
+            ),
             
             vol.Optional(
                 "max_discharge_power",
                 default=self.config_entry.options.get(
                     "max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=100, max=2000)),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
+                )
+            ),
             
             vol.Optional(
                 "virtual_min_soc",
                 default=self.config_entry.options.get(
                     "virtual_min_soc", DEFAULT_VIRTUAL_MIN_SOC
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=50)),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=50, step=1, unit_of_measurement="%", mode=selector.NumberSelectorMode.SLIDER
+                )
+            ),
             
             vol.Optional(
                 "is_main_device",
                 default=self.config_entry.options.get("is_main_device", False),
-            ): bool,
+            ): selector.BooleanSelector(),
         })
 
         # Build contextual description
