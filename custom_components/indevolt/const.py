@@ -4,9 +4,8 @@ DOMAIN = "indevolt"
 DEFAULT_PORT = 8080
 DEFAULT_SCAN_INTERVAL = 30
 
-# Virtuelle EPS Einstellungen
-CONF_VIRTUAL_EPS_LIMIT = "virtual_eps_limit"
-DEFAULT_VIRTUAL_EPS_LIMIT = 10
+# Virtual Min-SOC Settings
+DEFAULT_VIRTUAL_MIN_SOC = 8  # Default minimum SOC percentage for safety
 
 # Default power limits
 DEFAULT_MAX_CHARGE_POWER = 1200
