@@ -1,20 +1,155 @@
 set_self_consumption_mode:
   name: Set Self-Consumption Mode
   description: Sets device to Mode 1 (Self-consumed prioritized).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+
 set_schedule_mode:
   name: Set Schedule Mode
   description: Sets device to Mode 2 (Charge/discharge Schedule).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+
 set_realtime_mode:
   name: Set Real-Time Mode
   description: Sets device to Mode 4 (Real-time control).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+
 charge:
   name: Charge Battery
+  description: Charge battery with optional SOC limit. Respects virtual Min-SOC setting.
   fields:
-    power: {name: Power, required: true, selector: {number: {min: 0, max: 2000}}}
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    power:
+      name: Power
+      description: Charging power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop charging when this SOC percentage is reached (default 100%).
+      required: false
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
 discharge:
   name: Discharge Battery
+  description: Discharge battery with optional SOC limit. Respects virtual Min-SOC setting.
   fields:
-    power: {name: Power, required: true, selector: {number: {min: 0, max: 2000}}}
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    power:
+      name: Power
+      description: Discharging power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop discharging when this SOC percentage is reached (default 5%).
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
 stop:
   name: Stop Battery
-  description: Put battery in standby.
+  description: Put battery in standby mode.
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+
+cluster_charge:
+  name: Cluster Charge
+  description: Charge battery in cluster mode (command sent only to main device). Respects virtual Min-SOC setting.
+  fields:
+    power:
+      name: Power
+      description: Charging power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop charging when this SOC percentage is reached (default 100%).
+      required: false
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+cluster_discharge:
+  name: Cluster Discharge
+  description: Discharge battery in cluster mode (command sent only to main device). Respects virtual Min-SOC setting.
+  fields:
+    power:
+      name: Power
+      description: Discharging power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop discharging when this SOC percentage is reached (default 5%).
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+cluster_stop:
+  name: Cluster Stop
+  description: Stop battery in cluster mode (command sent only to main device).
