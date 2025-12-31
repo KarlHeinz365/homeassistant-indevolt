@@ -25,16 +25,20 @@
     "step": {
       "init": {
         "title": "indevolt Settings",
-        "description": "Configure power limits and update interval.\n\n{charge_info}\n{discharge_info}\n\nNote: Setting limits below device maximums can protect battery longevity and comply with local regulations.",
+        "description": "{info}",
         "data": {
           "scan_interval": "Update Interval (seconds)",
           "max_charge_power": "Maximum Charge Power (W)",
-          "max_discharge_power": "Maximum Discharge Power (W)"
+          "max_discharge_power": "Maximum Discharge Power (W)",
+          "virtual_min_soc": "Virtual Minimum SOC (%)",
+          "is_main_device": "Main Device (Cluster Mode)"
         },
         "data_description": {
           "scan_interval": "How often to poll the device for new data (5-300 seconds)",
           "max_charge_power": "Maximum allowed charging power in Watts (100-2000W). The device will reject commands exceeding this limit.",
-          "max_discharge_power": "Maximum allowed discharging power in Watts (100-2000W). The device will reject commands exceeding this limit."
+          "max_discharge_power": "Maximum allowed discharging power in Watts (100-2000W). The device will reject commands exceeding this limit.",
+          "virtual_min_soc": "Minimum SOC percentage (0-50%). Charge/discharge commands will be blocked when battery reaches this level to protect battery health.",
+          "is_main_device": "Enable if this device is the main unit in a cluster configuration. Cluster commands will only be sent to the main device."
         }
       }
     }
