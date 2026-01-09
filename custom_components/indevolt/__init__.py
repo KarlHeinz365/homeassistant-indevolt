@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN, PLATFORMS, DEFAULT_MAX_CHARGE_POWER, DEFAULT_MAX_DISCHARGE_POWER
 from .coordinator import IndevoltCoordinator
+from .utils import get_device_gen
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +34,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
     def get_coordinator_by_device_id(device_id: str | None) -> IndevoltCoordinator:
         """Get coordinator by device_id or return main device."""
         if device_id:
-            # Try to find coordinator by device_id
             for coord in hass.data[DOMAIN].values():
                 if coord.config_entry.entry_id == device_id:
                     return coord
@@ -51,7 +51,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         """Get all coordinators."""
         return list(hass.data[DOMAIN].values())
 
-    # --- Power Control Services ---
+    # ==================== Power Control Services ====================
     async def charge(call: ServiceCall):
         """Charge battery with virtual Min-SOC protection."""
         device_id = call.data.get("device_id")
@@ -62,7 +62,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         
         # Check virtual Min-SOC
         virtual_min_soc = coord.config_entry.options.get("virtual_min_soc", 10)
-        current_soc = coord.data.get("6002")  # Total Battery SOC
+        current_soc = coord.data.get("6002")
         
         if current_soc is not None and current_soc <= virtual_min_soc:
             _LOGGER.warning(
@@ -71,7 +71,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
             )
             return
         
-        # Get max limits from options
         max_charge = coord.config_entry.options.get("max_charge_power", DEFAULT_MAX_CHARGE_POWER)
         await coord.api.async_charge(power, soc_limit, max_charge)
 
@@ -85,7 +84,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         
         # Check virtual Min-SOC
         virtual_min_soc = coord.config_entry.options.get("virtual_min_soc", 10)
-        current_soc = coord.data.get("6002")  # Total Battery SOC
+        current_soc = coord.data.get("6002")
         
         if current_soc is not None and current_soc <= virtual_min_soc:
             _LOGGER.warning(
@@ -94,7 +93,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
             )
             return
         
-        # Get max limits from options
         max_discharge = coord.config_entry.options.get("max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER)
         await coord.api.async_discharge(power, soc_limit, max_discharge)
 
@@ -104,7 +102,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         coord = get_coordinator_by_device_id(device_id)
         await coord.api.async_stop()
 
-    # --- Working Mode Services ---
+    # ==================== Working Mode Services ====================
     async def set_self_consumption_mode(call: ServiceCall):
         """Sets device to Mode 1 (Self-consumed prioritized)."""
         device_id = call.data.get("device_id")
@@ -123,13 +121,12 @@ async def async_register_services(hass: HomeAssistant) -> None:
         coord = get_coordinator_by_device_id(device_id)
         await coord.api.async_set_mode(4)
     
-    # --- Cluster Mode Service ---
+    # ==================== Cluster Mode Services ====================
     async def cluster_charge(call: ServiceCall):
         """Charge battery in cluster mode - sends command only to main device."""
         power = call.data["power"]
         soc_limit = call.data.get("soc_limit", 100)
         
-        # Find main device
         main_coord = None
         for coord in get_all_coordinators():
             if coord.config_entry.options.get("is_main_device", False):
@@ -140,7 +137,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
             _LOGGER.error("No main device configured for cluster mode")
             return
         
-        # Check virtual Min-SOC on main device
         virtual_min_soc = main_coord.config_entry.options.get("virtual_min_soc", 10)
         current_soc = main_coord.data.get("6002")
         
@@ -160,7 +156,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
         power = call.data["power"]
         soc_limit = call.data.get("soc_limit", 5)
         
-        # Find main device
         main_coord = None
         for coord in get_all_coordinators():
             if coord.config_entry.options.get("is_main_device", False):
@@ -171,7 +166,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
             _LOGGER.error("No main device configured for cluster mode")
             return
         
-        # Check virtual Min-SOC on main device
         virtual_min_soc = main_coord.config_entry.options.get("virtual_min_soc", 10)
         current_soc = main_coord.data.get("6002")
         
@@ -188,7 +182,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
 
     async def cluster_stop(call: ServiceCall):
         """Stop charging/discharging in cluster mode."""
-        # Find main device
         main_coord = None
         for coord in get_all_coordinators():
             if coord.config_entry.options.get("is_main_device", False):
@@ -202,29 +195,134 @@ async def async_register_services(hass: HomeAssistant) -> None:
         await main_coord.api.async_stop()
         _LOGGER.info("Cluster stop command sent to main device")
 
-    # Service schemas with device selection
+    # ==================== Gen 2 Advanced Control Services ====================
+    async def set_max_ac_output_power(call: ServiceCall):
+        """Set max AC output power (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        power = call.data["power"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        # Check if Gen 2
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices (SolidFlex/PowerFlex2000)")
+            return
+        
+        await coord.api.async_set_max_ac_output_power(power)
+
+    async def set_feed_in_limit(call: ServiceCall):
+        """Set feed-in power limit (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        power = call.data["power"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices")
+            return
+        
+        await coord.api.async_set_feed_in_limit(power)
+
+    async def set_grid_charging(call: ServiceCall):
+        """Enable/disable grid charging (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        enable = call.data["enable"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices")
+            return
+        
+        await coord.api.async_set_grid_charging(enable)
+
+    async def set_inverter_input_limit(call: ServiceCall):
+        """Set inverter input limit (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        power = call.data["power"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices")
+            return
+        
+        await coord.api.async_set_inverter_input_limit(power)
+
+    async def set_bypass(call: ServiceCall):
+        """Enable/disable bypass (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        enable = call.data["enable"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices")
+            return
+        
+        await coord.api.async_set_bypass(enable)
+
+    async def set_backup_soc(call: ServiceCall):
+        """Set backup SOC (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        soc = call.data["soc"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices")
+            return
+        
+        await coord.api.async_set_backup_soc(soc)
+
+    async def set_light(call: ServiceCall):
+        """Enable/disable light (Gen 2 only)."""
+        device_id = call.data.get("device_id")
+        enable = call.data["enable"]
+        
+        coord = get_coordinator_by_device_id(device_id)
+        
+        if get_device_gen(coord.config_entry.data.get("device_model")) != 2:
+            _LOGGER.error("This service is only available for Gen 2 devices")
+            return
+        
+        await coord.api.async_set_light(enable)
+
+    # ==================== Service Schemas ====================
     device_schema = vol.Schema({
         vol.Optional("device_id"): cv.string,
     })
     
     charge_schema = device_schema.extend({
-        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2000)),
+        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2400)),
         vol.Optional("soc_limit", default=100): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
     })
     
     discharge_schema = device_schema.extend({
-        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2000)),
+        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2400)),
         vol.Optional("soc_limit", default=5): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
     })
     
     cluster_charge_schema = vol.Schema({
-        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2000)),
+        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2400)),
         vol.Optional("soc_limit", default=100): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
     })
     
     cluster_discharge_schema = vol.Schema({
-        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2000)),
+        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2400)),
         vol.Optional("soc_limit", default=5): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+    })
+    
+    power_schema = device_schema.extend({
+        vol.Required("power"): vol.All(vol.Coerce(int), vol.Range(min=0, max=2400)),
+    })
+    
+    boolean_schema = device_schema.extend({
+        vol.Required("enable"): cv.boolean,
+    })
+    
+    soc_schema = device_schema.extend({
+        vol.Required("soc"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
     })
 
     # Register all services
@@ -236,10 +334,18 @@ async def async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, "set_schedule_mode", set_schedule_mode, schema=device_schema)
     hass.services.async_register(DOMAIN, "set_realtime_mode", set_realtime_mode, schema=device_schema)
     
-    # Cluster mode services
     hass.services.async_register(DOMAIN, "cluster_charge", cluster_charge, schema=cluster_charge_schema)
     hass.services.async_register(DOMAIN, "cluster_discharge", cluster_discharge, schema=cluster_discharge_schema)
     hass.services.async_register(DOMAIN, "cluster_stop", cluster_stop)
+    
+    # Gen 2 advanced services
+    hass.services.async_register(DOMAIN, "set_max_ac_output_power", set_max_ac_output_power, schema=power_schema)
+    hass.services.async_register(DOMAIN, "set_feed_in_limit", set_feed_in_limit, schema=power_schema)
+    hass.services.async_register(DOMAIN, "set_grid_charging", set_grid_charging, schema=boolean_schema)
+    hass.services.async_register(DOMAIN, "set_inverter_input_limit", set_inverter_input_limit, schema=power_schema)
+    hass.services.async_register(DOMAIN, "set_bypass", set_bypass, schema=boolean_schema)
+    hass.services.async_register(DOMAIN, "set_backup_soc", set_backup_soc, schema=soc_schema)
+    hass.services.async_register(DOMAIN, "set_light", set_light, schema=boolean_schema)
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
@@ -248,14 +354,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         # Unregister services if this was the last device
         if not hass.data[DOMAIN]:
-            hass.services.async_remove(DOMAIN, "charge")
-            hass.services.async_remove(DOMAIN, "discharge")
-            hass.services.async_remove(DOMAIN, "stop")
-            hass.services.async_remove(DOMAIN, "set_self_consumption_mode")
-            hass.services.async_remove(DOMAIN, "set_schedule_mode")
-            hass.services.async_remove(DOMAIN, "set_realtime_mode")
-            hass.services.async_remove(DOMAIN, "cluster_charge")
-            hass.services.async_remove(DOMAIN, "cluster_discharge")
-            hass.services.async_remove(DOMAIN, "cluster_stop")
+            services = [
+                "charge", "discharge", "stop",
+                "set_self_consumption_mode", "set_schedule_mode", "set_realtime_mode",
+                "cluster_charge", "cluster_discharge", "cluster_stop",
+                "set_max_ac_output_power", "set_feed_in_limit", "set_grid_charging",
+                "set_inverter_input_limit", "set_bypass", "set_backup_soc", "set_light"
+            ]
+            for service in services:
+                hass.services.async_remove(DOMAIN, service)
     
     return unload_ok

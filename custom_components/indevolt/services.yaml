@@ -1,3 +1,4 @@
+# ==================== Working Mode Services ====================
 set_self_consumption_mode:
   name: Set Self-Consumption Mode
   description: Sets device to Mode 1 (Self-consumed prioritized).
@@ -22,7 +23,7 @@ set_schedule_mode:
 
 set_realtime_mode:
   name: Set Real-Time Mode
-  description: Sets device to Mode 4 (Real-time control).
+  description: Sets device to Mode 4 (Real-time control). Required before using charge/discharge/stop commands.
   fields:
     device_id:
       name: Device ID
@@ -31,9 +32,10 @@ set_realtime_mode:
       selector:
         text:
 
+# ==================== Basic Battery Control ====================
 charge:
   name: Charge Battery
-  description: Charge battery with optional SOC limit. Respects virtual Min-SOC setting.
+  description: Charge battery with optional SOC limit. Respects virtual Min-SOC setting. Device must be in Real-time Mode (Mode 4).
   fields:
     device_id:
       name: Device ID
@@ -43,12 +45,12 @@ charge:
         text:
     power:
       name: Power
-      description: Charging power in Watts.
+      description: Charging power in Watts (Gen1:0-1200W, Gen2:50-2400W).
       required: true
       selector:
         number:
           min: 0
-          max: 2000
+          max: 2400
           unit_of_measurement: W
     soc_limit:
       name: SOC Limit
@@ -63,7 +65,7 @@ charge:
 
 discharge:
   name: Discharge Battery
-  description: Discharge battery with optional SOC limit. Respects virtual Min-SOC setting.
+  description: Discharge battery with optional SOC limit. Respects virtual Min-SOC setting. Device must be in Real-time Mode (Mode 4).
   fields:
     device_id:
       name: Device ID
@@ -73,12 +75,12 @@ discharge:
         text:
     power:
       name: Power
-      description: Discharging power in Watts.
+      description: Discharging power in Watts (Gen1:0-800W, Gen2:50-2400W).
       required: true
       selector:
         number:
           min: 0
-          max: 2000
+          max: 2400
           unit_of_measurement: W
     soc_limit:
       name: SOC Limit
@@ -93,7 +95,7 @@ discharge:
 
 stop:
   name: Stop Battery
-  description: Put battery in standby mode.
+  description: Put battery in standby mode (stops charging and discharging).
   fields:
     device_id:
       name: Device ID
@@ -102,6 +104,7 @@ stop:
       selector:
         text:
 
+# ==================== Cluster Mode Services ====================
 cluster_charge:
   name: Cluster Charge
   description: Charge battery in cluster mode (command sent only to main device). Respects virtual Min-SOC setting.
@@ -113,7 +116,7 @@ cluster_charge:
       selector:
         number:
           min: 0
-          max: 2000
+          max: 2400
           unit_of_measurement: W
     soc_limit:
       name: SOC Limit
@@ -137,7 +140,7 @@ cluster_discharge:
       selector:
         number:
           min: 0
-          max: 2000
+          max: 2400
           unit_of_measurement: W
     soc_limit:
       name: SOC Limit
@@ -153,3 +156,135 @@ cluster_discharge:
 cluster_stop:
   name: Cluster Stop
   description: Stop battery in cluster mode (command sent only to main device).
+
+# ==================== Gen 2 Advanced Control Services ====================
+set_max_ac_output_power:
+  name: Set Max AC Output Power
+  description: Set maximum AC output power limit (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    power:
+      name: Power
+      description: Maximum AC output power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2400
+          unit_of_measurement: W
+
+set_feed_in_limit:
+  name: Set Feed-in Power Limit
+  description: Set grid feed-in power limit (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    power:
+      name: Power
+      description: Feed-in power limit in Watts (0 = no feed-in).
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2400
+          unit_of_measurement: W
+
+set_grid_charging:
+  name: Set Grid Charging
+  description: Enable or disable charging from grid (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    enable:
+      name: Enable
+      description: Enable (true) or disable (false) grid charging.
+      required: true
+      selector:
+        boolean:
+
+set_inverter_input_limit:
+  name: Set Inverter Input Limit
+  description: Set inverter input power limit (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    power:
+      name: Power
+      description: Inverter input limit in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2400
+          unit_of_measurement: W
+
+set_bypass:
+  name: Set Bypass
+  description: Enable or disable bypass mode (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    enable:
+      name: Enable
+      description: Enable (true) or disable (false) bypass.
+      required: true
+      selector:
+        boolean:
+
+set_backup_soc:
+  name: Set Backup SOC
+  description: Set backup/emergency power supply SOC threshold (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    soc:
+      name: SOC
+      description: Backup SOC percentage (battery reserves this SOC for emergency).
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+set_light:
+  name: Set Light
+  description: Enable or disable device light/LED (Gen 2 SolidFlex/PowerFlex2000 only).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+    enable:
+      name: Enable
+      description: Enable (true) or disable (false) light.
+      required: true
+      selector:
+        boolean:
