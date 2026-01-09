@@ -31,6 +31,7 @@
           "max_charge_power": "Max Charge Power",
           "max_discharge_power": "Max Discharge Power",
           "virtual_min_soc": "Virtual Min-SOC",
+          "enable_safety_filter": "Enable Data Safety Filter",
           "is_main_device": "Main Device (Cluster Mode)"
         },
         "data_description": {
@@ -38,6 +39,7 @@
           "max_charge_power": "Maximum charging power in Watts (100-2000W)",
           "max_discharge_power": "Maximum discharging power in Watts (100-2000W)",
           "virtual_min_soc": "Safety threshold: Block charge/discharge below this SOC (0-50%)",
+          "enable_safety_filter": "If enabled, the integration will ignore temporary '0' or 'None' values caused by network drops to protect your energy statistics.",
           "is_main_device": "Enable if this is your primary device in a cluster setup"
         }
       }
