@@ -10,6 +10,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import selector
 
 from .const import (
     DOMAIN, 
@@ -58,33 +59,24 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 api = IndevoltAPI(host, port, async_get_clientsession(self.hass))
                 
                 try:
-                    # Fetch serial number using key 0 (per API documentation)
                     _LOGGER.debug("Attempting to fetch device SN (key 0) for setup")
-                    data = await api.fetch_data([0])  # Key 0 is INT
-                    serial_number = data.get("0")  # Response key is STRING
+                    data = await api.fetch_data([0])
+                    serial_number = data.get("0")
 
                     if not serial_number:
                         raise ConnectionError(
                             "Could not retrieve serial number from device (key 0)"
                         )
                     
-                    # Get firmware version from hardcoded table (no API key available)
                     device_gen = get_device_gen(device_model)
                     if device_gen == 1:
                         fw_version = "V1.3.0A_R006.072_M4848_00000039"
                     else:
                         fw_version = "V1.3.09_R00D.012_M4801_00000015"
                     
-                    _LOGGER.info(
-                        "Successfully connected to indevolt device. SN: %s, FW: %s",
-                        serial_number, fw_version
-                    )
-
-                    # Set unique ID to prevent duplicate devices
                     await self.async_set_unique_id(str(serial_number))
                     self._abort_if_unique_id_configured()
 
-                    # Data stored in config entry (immutable)
                     data_to_save = {
                         CONF_HOST: host,
                         CONF_PORT: port,
@@ -93,13 +85,13 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "fw_version": fw_version,
                     }
                     
-                    # Options (can be changed via options flow)
                     options_to_save = {
                         CONF_SCAN_INTERVAL: scan_interval,
                         "max_charge_power": DEFAULT_MAX_CHARGE_POWER,
                         "max_discharge_power": DEFAULT_MAX_DISCHARGE_POWER,
                         "virtual_min_soc": DEFAULT_VIRTUAL_MIN_SOC,
-                        "is_main_device": False,  # Default: not main device
+                        "is_main_device": False,
+                        "enable_safety_filter": True,  # Default enabled
                     }
 
                     return self.async_create_entry(
@@ -109,16 +101,12 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
 
                 except (ConnectionError, asyncio.TimeoutError):
-                    _LOGGER.warning(
-                        "Failed to connect to indevolt at %s:%s", 
-                        host, port
-                    )
+                    _LOGGER.warning("Failed to connect to indevolt at %s:%s", host, port)
                     errors["base"] = "cannot_connect"
                 except Exception:
                     _LOGGER.exception("Unexpected exception during setup")
                     errors["base"] = "unknown"
 
-        # Schema for initial setup form
         setup_schema = vol.Schema({
             vol.Required(CONF_HOST): str,
             vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
@@ -126,11 +114,7 @@ class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required("device_model"): vol.In(SUPPORTED_MODELS),
         })
         
-        return self.async_show_form(
-            step_id="user", 
-            data_schema=setup_schema, 
-            errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=setup_schema, errors=errors)
 
 
 class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
@@ -143,18 +127,15 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # Get device generation for contextual defaults
         device_gen = get_device_gen(self.config_entry.data.get("device_model"))
         
-        # Device-specific recommended limits
         if device_gen == 1:
             charge_description = "BK1600 Ultra: Max 1200W"
-            discharge_description = "BK1600 Ultra: Max 800W (1000W EPS, 800W with micro-inverter)"
+            discharge_description = "BK1600 Ultra: Max 800W"
         else:
             charge_description = "SolidFlex/PowerFlex2000: Max 1200W"
             discharge_description = "SolidFlex/PowerFlex2000: Max 800W"
 
-        # Check if other devices exist and if any is already main
         existing_main = False
         if self.hass.data.get(DOMAIN):
             for entry_id, coord in self.hass.data[DOMAIN].items():
@@ -163,61 +144,41 @@ class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
                         existing_main = True
                         break
 
-        # Schema for options form with proper selectors
-        from homeassistant.helpers import selector
-        
         options_schema = vol.Schema({
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=self.config_entry.options.get(
-                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                ),
+                default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=5, max=300, step=1, unit_of_measurement="s", mode=selector.NumberSelectorMode.BOX
-                )
+                selector.NumberSelectorConfig(min=5, max=300, step=1, unit_of_measurement="s", mode=selector.NumberSelectorMode.BOX)
             ),
-            
             vol.Optional(
                 "max_charge_power",
-                default=self.config_entry.options.get(
-                    "max_charge_power", DEFAULT_MAX_CHARGE_POWER
-                ),
+                default=self.config_entry.options.get("max_charge_power", DEFAULT_MAX_CHARGE_POWER),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
-                )
+                selector.NumberSelectorConfig(min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
             ),
-            
             vol.Optional(
                 "max_discharge_power",
-                default=self.config_entry.options.get(
-                    "max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER
-                ),
+                default=self.config_entry.options.get("max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
-                )
+                selector.NumberSelectorConfig(min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
             ),
-            
             vol.Optional(
                 "virtual_min_soc",
-                default=self.config_entry.options.get(
-                    "virtual_min_soc", DEFAULT_VIRTUAL_MIN_SOC
-                ),
+                default=self.config_entry.options.get("virtual_min_soc", DEFAULT_VIRTUAL_MIN_SOC),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0, max=50, step=1, unit_of_measurement="%", mode=selector.NumberSelectorMode.SLIDER
-                )
+                selector.NumberSelectorConfig(min=0, max=50, step=1, unit_of_measurement="%", mode=selector.NumberSelectorMode.SLIDER)
             ),
-            
+            vol.Optional(
+                "enable_safety_filter",
+                default=self.config_entry.options.get("enable_safety_filter", True),
+            ): selector.BooleanSelector(),
             vol.Optional(
                 "is_main_device",
                 default=self.config_entry.options.get("is_main_device", False),
             ): selector.BooleanSelector(),
         })
 
-        # Build contextual description
         main_device_info = ""
         if existing_main:
             main_device_info = "\n\n⚠️ **Cluster Mode**: Another device is already configured as Main Device."
