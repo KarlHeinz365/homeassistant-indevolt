@@ -15,7 +15,7 @@ import logging
 
 
 _LOGGER = logging.getLogger(__name__)
-
+//
 
 @dataclass(frozen=True, kw_only=True)
 class IndevoltSensorEntityDescription(SensorEntityDescription):
@@ -409,3 +409,4 @@ class IndevoltSensorEntity(CoordinatorEntity, SensorEntity):
             return self.entity_description.state_mapping.get(raw_value)
 
         return raw_value * self.entity_description.coefficient
+
