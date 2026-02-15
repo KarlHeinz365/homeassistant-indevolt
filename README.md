@@ -1,3 +1,11 @@
+#Updated Indevolt Integration from Speedy2524 (Sensors, Services, API calls, Error handling, Bug fixing)
+
+** Extended Sensor.py with about ~180 sensor/entities total
+** Extended Services (Setting Backup SOC, Setting AC Output Power Limit, Setting Feed-In Power Limit, Enable/Disable Grid Charging, Setting Inverter Input Power, Enable/Disable Bypass Socket, Enable/Disable LED Light)
+** Modified API calls (Batch processing to handle large sensor list queries)
+** Modified Error handling
+** Fixed some bugs
+
 # Home Assistant Indevolt Integration (with Control Services)
 
 This is a modified version of the original [homeassistant-indevolt](https://github.com/solarmanpv/homeassistant-indevolt) custom integration.  
