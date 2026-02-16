@@ -12,11 +12,13 @@ Battery Main Dashboard
 
 ---
 Battery Detail Dashboard
-<img width="2108" height="1244" alt="grafik" src="https://github.com/user-attachments/assets/6d29ec04-714c-4c2d-816c-a75e9f46d551" />
+<img width="1912" height="1113" alt="grafik" src="https://github.com/user-attachments/assets/46fe4805-95f5-4989-be42-ce1c6710d6b0" />
+
 
 ---
 Battery Control Dashboard
-<img width="984" height="1333" alt="grafik" src="https://github.com/user-attachments/assets/795c75b8-8ee8-4d21-907a-69228ac747c5" />
+<img width="916" height="1380" alt="grafik" src="https://github.com/user-attachments/assets/27407266-ff42-4cfa-8e5d-bcf6b130fef0" />
+
 
 
 ---
