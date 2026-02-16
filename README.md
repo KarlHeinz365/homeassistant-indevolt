@@ -6,6 +6,19 @@
 - **Modified Error handling**
 - **Fixed some bugs**
 
+For your inspiration:
+Battery Main Dashboard
+<img width="2133" height="1253" alt="grafik" src="https://github.com/user-attachments/assets/b638dcc5-3f25-4b3b-b6ae-2777de62c8cc" />
+
+---
+Battery Detail Dashboard
+<img width="2108" height="1244" alt="grafik" src="https://github.com/user-attachments/assets/6d29ec04-714c-4c2d-816c-a75e9f46d551" />
+
+---
+Battery Control Dashboard
+<img width="984" height="1333" alt="grafik" src="https://github.com/user-attachments/assets/795c75b8-8ee8-4d21-907a-69228ac747c5" />
+
+
 ---
 ---
 ---
