@@ -1,25 +1,22 @@
 # Updated Indevolt Integration from Speedy2524 (Sensors, Services, API calls, Error handling, Bug fixing)
 
-- **Extended Sensor.py with about ~180 sensor/entities total**
+- **Extended Sensor.py with about ~230 sensors/entities total**
 - **Extended Services (Setting Backup SOC, Setting AC Output Power Limit, Setting Feed-In Power Limit, Enable/Disable Grid Charging, Setting Inverter Input Power, Enable/Disable Bypass Socket, Enable/Disable LED Light)**
 - **Modified API calls (Batch processing to handle large sensor list queries)**
 - **Modified Error handling**
 - **Fixed some bugs**
 
-For your inspiration:
-Battery Main Dashboard
+**For your inspiration:**
+**Battery Main Dashboard**
 <img width="2133" height="1253" alt="grafik" src="https://github.com/user-attachments/assets/b638dcc5-3f25-4b3b-b6ae-2777de62c8cc" />
 
 ---
-Battery Detail Dashboard
+**Battery Detail Dashboard**
 <img width="1912" height="1113" alt="grafik" src="https://github.com/user-attachments/assets/46fe4805-95f5-4989-be42-ce1c6710d6b0" />
 
-
 ---
-Battery Control Dashboard
+**Battery Control Dashboard**
 <img width="916" height="1380" alt="grafik" src="https://github.com/user-attachments/assets/27407266-ff42-4cfa-8e5d-bcf6b130fef0" />
-
-
 
 ---
 ---
