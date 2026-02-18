@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your indevolt Device",
+        "description": "Enter the connection details for your device.",
+        "data": {
+          "host": "IP Address",
+          "port": "Port",
+          "device_model": "Device Model",
+          "scan_interval": "Update Interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Please check the IP address and port, and ensure the device is online.",
+      "unknown": "An unknown error occurred. Please check the Home Assistant logs for more details.",
+      "invalid_port": "Port must be between 1 and 65535."
+    },
+    "abort": {
+      "already_configured": "This device has already been configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "INDEVOLT Configuration",
+        "description": "**Power Limits**\n{charge_info}\n{discharge_info}\n\n**Safety & Cluster Settings**\nVirtual Min-SOC protects your battery from deep discharge. Commands are blocked when SOC reaches this level.{main_device_warning}",
+        "data": {
+          "scan_interval": "Update Interval",
+          "max_charge_power": "Max Charge Power",
+          "max_discharge_power": "Max Discharge Power",
+          "virtual_min_soc": "Virtual Min-SOC",
+          "enable_safety_filter": "Enable Data Safety Filter",
+          "is_main_device": "Main Device (Cluster Mode)"
+        },
+        "data_description": {
+          "scan_interval": "Polling frequency in seconds (5-300)",
+          "max_charge_power": "Maximum charging power in Watts (100-2000W)",
+          "max_discharge_power": "Maximum discharging power in Watts (100-2000W)",
+          "virtual_min_soc": "Safety threshold: Block charge/discharge below this SOC (0-50%)",
+          "enable_safety_filter": "If enabled, the integration will ignore temporary '0' or 'None' values caused by network drops to protect your energy statistics.",
+          "is_main_device": "Enable if this is your primary device in a cluster setup"
+        }
+      }
+    }
+  }
+}
