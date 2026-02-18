@@ -1,12 +1,13 @@
 {
   "domain": "indevolt",
   "name": "INDEVOLT",
-  "version": "1.0.0",
-  "documentation": "https://github.com/Speedy2524/homeassistant-indevolt",
-  "issue_tracker": "https://github.com/Speedy2524/homeassistant-indevolt/issues",
-  "codeowners": ["@Speedy2524"],
+  "version": "1.1.0",
+  "documentation": "https://github.com/KarlHeinz365/homeassistant-indevolt",
+  "issue_tracker": "https://github.com/KarlHeinz365/homeassistant-indevolt/issues",
+  "codeowners": ["@KarlHeinz365"],
   "requirements": [],
   "dependencies": [],
   "config_flow": true,
   "iot_class": "local_polling"
 }
+
