@@ -1,39 +1,294 @@
-# Describes the services for the inDevolt integration
+set_self_consumption_mode:
+  name: Set Self-Consumption Mode
+  description: Sets device to Mode 1 (Self-consumed prioritized).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+
+set_schedule_mode:
+  name: Set Schedule Mode
+  description: Sets device to Mode 5 (Charge/discharge Schedule).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
 
 set_realtime_mode:
   name: Set Real-Time Mode
-  description: Puts the device into a mode that accepts real-time control commands. This should be called once after a Home Assistant restart to ensure reliable operation.
+  description: Sets device to Mode 4 (Real-time control).
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
 
 charge:
   name: Charge Battery
-  description: Tells the battery to start charging.
+  description: Charge battery with optional SOC limit. Respects virtual Min-SOC setting.
   fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
     power:
       name: Power
-      description: The charging power in Watts.
+      description: Charging power in Watts.
       required: true
-      example: 500
       selector:
         number:
           min: 0
-          max: 2000 # You can adjust this max value
-          unit_of_measurement: "W"
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop charging when this SOC percentage is reached (default 100%).
+      required: false
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
 
 discharge:
   name: Discharge Battery
-  description: Tells the battery to start discharging to power your home.
+  description: Discharge battery with optional SOC limit. Respects virtual Min-SOC setting.
   fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
     power:
       name: Power
-      description: The discharging power in Watts.
+      description: Discharging power in Watts.
       required: true
-      example: 300
       selector:
         number:
           min: 0
-          max: 2000 # You can adjust this max value
-          unit_of_measurement: "W"
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop discharging when this SOC percentage is reached (default 5%).
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
 
 stop:
   name: Stop Battery
-  description: Puts the battery into standby mode, stopping any active charging or discharging.
+  description: Put battery in standby mode.
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:
+
+cluster_charge:
+  name: Cluster Charge
+  description: Charge battery in cluster mode (command sent only to main device). Respects virtual Min-SOC setting.
+  fields:
+    power:
+      name: Power
+      description: Charging power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop charging when this SOC percentage is reached (default 100%).
+      required: false
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+cluster_discharge:
+  name: Cluster Discharge
+  description: Discharge battery in cluster mode (command sent only to main device). Respects virtual Min-SOC setting.
+  fields:
+    power:
+      name: Power
+      description: Discharging power in Watts.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 2000
+          unit_of_measurement: W
+    soc_limit:
+      name: SOC Limit
+      description: Stop discharging when this SOC percentage is reached (default 5%).
+      required: false
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+cluster_stop:
+  name: Cluster Stop
+  description: Stop battery in cluster mode (command sent only to main device).
+  
+set_backup_soc:
+  name: Set Backup SOC
+  description: Changes the Backup SOC value (%)
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    backup_soc:
+      name: Backup SOC
+      description: Backup SOC to set.
+      required: true
+      example: 60
+      default: 50      
+      selector:
+        number:
+          min: 5
+          max: 100 # You can adjust this max value
+          unit_of_measurement: "%"
+
+set_ac_output_power:
+  name: Set AC Output Power
+  description: Changes the AC Output Power (Watt)
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    ac_output_power:
+      name: AC Output Power
+      description: AC Output Power in Watts.
+      required: true
+      example: 800
+      default: 800
+      selector:
+        number:
+          min: 0
+          max: 2400 # You can adjust this max value
+          unit_of_measurement: "W"
+
+set_feed_in_power:
+  name: Set Feed-In Power
+  description: Changes the Feed-In Power (Watt)
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    feed_in_power:
+      name: Feed-In Power
+      description: Feed-In Power in Watts.
+      required: true
+      example: 800
+      default: 800      
+      selector:
+        number:
+          min: 0
+          max: 2400 # You can adjust this max value
+          unit_of_measurement: "W"
+
+set_grid_charging:
+  name: Set Grid Charging
+  description: Enable/Disable Grid Charging
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    grid_charging:
+      name: Grid Charging
+      description: Enable/Disable Grid Charging.
+      required: true
+      selector:
+        boolean:
+
+set_inverter_input_power:
+  name: Set Interter Input Power
+  description: Changes the Inverter Input Power (Watt)
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    inverter_input_power:
+      name: Inverter Input Power
+      description: Inverter Input Power in Watts.
+      required: true
+      example: 800
+      default: 800      
+      selector:
+        number:
+          min: 0
+          max: 2400 # You can adjust this max value
+          unit_of_measurement: "W"
+
+set_bypass_socket:
+  name: Enable/Disable Bypass Socket
+  description: Enable/Disable Bypass Socket
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    bypass_socket:
+      name: Bypass Socket
+      description: Enable/Disable Bypass Socket.
+      required: true
+      selector:
+        boolean:
+
+set_led_light:
+  name: Enable/Disable LED Light
+  description: Enable/Disable LED Light
+  fields:
+    device_id:
+      name: Device ID
+      description: Optional device entry_id. If not specified, uses main device or first device.
+      required: false
+      selector:
+        text:  
+    led_light:
+      name: LED Light
+      description: Enable/Disable LED Light.
+      required: true
+      selector:
+        boolean:
