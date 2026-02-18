@@ -5,7 +5,7 @@
 - **Modified API calls (Batch processing to handle large sensor list queries)**
 - **Modified Error handling**
 - **Fixed some bugs**
-- **Replace the updated files manually!! The Repo is not HACS compatible**
+- **Added HACS compatibiblity (not tested yet!)**
 - ****
 - **Use at your own risk!**
 
