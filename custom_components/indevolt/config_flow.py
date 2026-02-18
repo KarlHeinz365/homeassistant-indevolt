@@ -1,103 +1,194 @@
-import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
-from homeassistant.core import callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from .const import DOMAIN, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, SUPPORTED_MODELS
-from .utils import get_device_gen
+"""Config flow for indevolt integration."""
+from __future__ import annotations
+
 import logging
 import asyncio
+from typing import Any
+import voluptuous as vol
+
+from homeassistant import config_entries
+from homeassistant.core import callback
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import selector
+
+from .const import (
+    DOMAIN, 
+    DEFAULT_PORT, 
+    DEFAULT_SCAN_INTERVAL, 
+    SUPPORTED_MODELS,
+    DEFAULT_MAX_CHARGE_POWER,
+    DEFAULT_MAX_DISCHARGE_POWER,
+    DEFAULT_VIRTUAL_MIN_SOC
+)
 from .indevolt_api import IndevoltAPI
+from .utils import get_device_gen
 
 _LOGGER = logging.getLogger(__name__)
 
-class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Configuration flow for Indevolt integration."""
+
+class indevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for indevolt."""
 
     VERSION = 1
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Erstellt den Options-Flow-Handler."""
-        return IndevoltOptionsFlowHandler(config_entry)
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry
+    ) -> indevoltOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return indevoltOptionsFlowHandler()
 
-    async def async_step_user(self, user_input=None):
-        """
-        Handle the initial user configuration step.
-        """
-        errors = {}
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        """Handle the initial step."""
+        errors: dict[str, str] = {}
+        
         if user_input is not None:
-            host = user_input["host"]
-            port = user_input.get("port", DEFAULT_PORT)
-            scan_interval = user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+            host = user_input[CONF_HOST]
+            port = user_input.get(CONF_PORT, DEFAULT_PORT)
             device_model = user_input["device_model"]
+            scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
-            api = IndevoltAPI(host, port, async_get_clientsession(self.hass))
-            device_gen = get_device_gen(device_model)
-            
-            try:
-                fw_version=""
-                if device_gen == 1:
-                    fw_version="V1.3.0A_R006.072_M4848_00000039"
-                else:
-                    fw_version="V1.3.09_R00D.012_M4801_00000015"
+            # Validate port range
+            if not 1 <= port <= 65535:
+                errors["port"] = "invalid_port"
+            else:
+                api = IndevoltAPI(host, port, async_get_clientsession(self.hass))
+                
+                try:
+                    _LOGGER.debug("Attempting to fetch device SN (key 0) for setup")
+                    data = await api.fetch_data([0])
+                    serial_number = data.get("0")
 
-                data = await api.fetch_data([0])
-                device_sn = data.get("0")
+                    if not serial_number:
+                        raise ConnectionError(
+                            "Could not retrieve serial number from device (key 0)"
+                        )
+                    
+                    device_gen = get_device_gen(device_model)
+                    if device_gen == 1:
+                        fw_version = "V1.3.0A_R006.072_M4848_00000039"
+                    else:
+                        fw_version = "V1.3.09_R00D.012_M4801_00000015"
+                    
+                    await self.async_set_unique_id(str(serial_number))
+                    self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(
-                    title=f"INDEVOLT {device_model} ({host})",
-                    data={
-                        "host": host,
-                        "port": port,
-                        "scan_interval": scan_interval,
-                        "sn": device_sn,
+                    data_to_save = {
+                        CONF_HOST: host,
+                        CONF_PORT: port,
                         "device_model": device_model,
-                        "fw_version": fw_version
+                        "sn": str(serial_number),
+                        "fw_version": fw_version,
                     }
-                )
-            
-            except asyncio.TimeoutError:
-                errors["base"] = "timeout"
-            except Exception as e:
-                _LOGGER.error("Unknown error occurred while verifying device: %s", str(e), exc_info=True)
-                errors["base"] = "unknown"
+                    
+                    options_to_save = {
+                        CONF_SCAN_INTERVAL: scan_interval,
+                        "max_charge_power": DEFAULT_MAX_CHARGE_POWER,
+                        "max_discharge_power": DEFAULT_MAX_DISCHARGE_POWER,
+                        "virtual_min_soc": DEFAULT_VIRTUAL_MIN_SOC,
+                        "is_main_device": False,
+                        "enable_safety_filter": True,  # Default enabled
+                    }
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required("host"): str,
-                vol.Optional("port", default=DEFAULT_PORT): int,
-                vol.Optional("scan_interval", default=DEFAULT_SCAN_INTERVAL): int,
-                vol.Required("device_model"): vol.In(SUPPORTED_MODELS),
-            }),
-            errors=errors
-        )
+                    return self.async_create_entry(
+                        title=f"indevolt {serial_number}", 
+                        data=data_to_save,
+                        options=options_to_save
+                    )
 
-class IndevoltOptionsFlowHandler(OptionsFlow):
-    """Handles options flow for the Indevolt integration."""
+                except (ConnectionError, asyncio.TimeoutError):
+                    _LOGGER.warning("Failed to connect to indevolt at %s:%s", host, port)
+                    errors["base"] = "cannot_connect"
+                except Exception:
+                    _LOGGER.exception("Unexpected exception during setup")
+                    errors["base"] = "unknown"
 
-    # --- ENDGÜLTIGE KORREKTUR ---
-    # Wir definieren __init__, um das 'config_entry' Argument zu akzeptieren,
-    # aber lassen den Körper leer, da Home Assistant sich um die Zuweisung kümmert.
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize the options flow."""
-        pass
+        setup_schema = vol.Schema({
+            vol.Required(CONF_HOST): str,
+            vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
+            vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+            vol.Required("device_model"): vol.In(SUPPORTED_MODELS),
+        })
+        
+        return self.async_show_form(step_id="user", data_schema=setup_schema, errors=errors)
 
-    async def async_step_init(self, user_input=None):
+
+class indevoltOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handles options flow for the component."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        device_gen = get_device_gen(self.config_entry.data.get("device_model"))
+        
+        if device_gen == 1:
+            charge_description = "BK1600 Ultra: Max 1200W"
+            discharge_description = "BK1600 Ultra: Max 800W"
+        else:
+            charge_description = "SolidFlex/PowerFlex2000: Max 1200W"
+            discharge_description = "SolidFlex/PowerFlex2000: Max 800W"
+
+        existing_main = False
+        if self.hass.data.get(DOMAIN):
+            for entry_id, coord in self.hass.data[DOMAIN].items():
+                if entry_id != self.config_entry.entry_id:
+                    if coord.config_entry.options.get("is_main_device", False):
+                        existing_main = True
+                        break
+
+        options_schema = vol.Schema({
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=5, max=300, step=1, unit_of_measurement="s", mode=selector.NumberSelectorMode.BOX)
+            ),
+            vol.Optional(
+                "max_charge_power",
+                default=self.config_entry.options.get("max_charge_power", DEFAULT_MAX_CHARGE_POWER),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
+            ),
+            vol.Optional(
+                "max_discharge_power",
+                default=self.config_entry.options.get("max_discharge_power", DEFAULT_MAX_DISCHARGE_POWER),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=100, max=2000, step=50, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX)
+            ),
+            vol.Optional(
+                "virtual_min_soc",
+                default=self.config_entry.options.get("virtual_min_soc", DEFAULT_VIRTUAL_MIN_SOC),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=50, step=1, unit_of_measurement="%", mode=selector.NumberSelectorMode.SLIDER)
+            ),
+            vol.Optional(
+                "enable_safety_filter",
+                default=self.config_entry.options.get("enable_safety_filter", True),
+            ): selector.BooleanSelector(),
+            vol.Optional(
+                "is_main_device",
+                default=self.config_entry.options.get("is_main_device", False),
+            ): selector.BooleanSelector(),
+        })
+
+        main_device_info = ""
+        if existing_main:
+            main_device_info = "\n\n⚠️ **Cluster Mode**: Another device is already configured as Main Device."
+        
         return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({
-                vol.Optional(
-                    "scan_interval",
-                    default=self.config_entry.options.get(
-                        "scan_interval", 
-                        self.config_entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)
-                    ),
-                ): int,
-            }),
+            step_id="init", 
+            data_schema=options_schema,
+            description_placeholders={
+                "charge_info": charge_description,
+                "discharge_info": discharge_description,
+                "main_device_warning": main_device_info,
+            }
         )
