@@ -1,46 +1,185 @@
-import asyncio
-import aiohttp
-import json
+import asyncio, aiohttp, json
 from typing import Dict, Any, List
 
 class IndevoltAPI:
-    """Handles all HTTP communication with Indevolt devices"""
-    
     def __init__(self, host: str, port: int, session: aiohttp.ClientSession):
-        self.host = host
-        self.port = port
-        self.session = session
+        self.host, self.port, self.session = host, port, session
         self.base_url = f"http://{host}:{port}/rpc"
-        self.timeout = aiohttp.ClientTimeout(total=60)
-    
-    async def fetch_data(self, keys: List[str]) -> Dict[str, Any]:
-        """Fetch raw JSON data from the device"""
-        config_param = json.dumps({"t": keys}).replace(" ", "")
-        url = f"{self.base_url}/Indevolt.GetData?config={config_param}"
-        
-        try:
-            async with self.session.post(url, timeout=self.timeout) as response:
-                if response.status != 200:
-                    raise Exception(f"HTTP status error: {response.status}")
-                return await response.json()
-                
-        except asyncio.TimeoutError:
-            raise Exception("Indevolt.GetData Request timed out")
-        except aiohttp.ClientError as err:
-            raise Exception(f"Indevolt.GetData Network error: {err}")
 
-    async def set_data(self, f: int, t: int, v: list) -> dict[str, Any]:
-        """Send raw JSON data to the device"""
-        config_param = json.dumps({"f": f, "t": t, "v": v}).replace(" ", "")
-        url = f"{self.base_url}/Indevolt.SetData?config={config_param}"
+    async def fetch_data(self, keys: List[int], batch_size: int = 65) -> Dict[str, Any]:
+        """Fetch data from specific registers, batching requests if needed."""
+        import logging
+        _LOGGER = logging.getLogger(__name__)
         
-        try:
-            async with self.session.post(url, timeout=self.timeout) as response:
-                if response.status != 200:
-                    raise Exception(f"HTTP status error: {response.status}")
-                return await response.json()
+        # If keys fit in one batch, use original behavior
+        if len(keys) <= batch_size:
+            config = json.dumps({"t": keys}).replace(" ", "")
+            try:
+                timeout = aiohttp.ClientTimeout(total=15)
+                async with self.session.post(f"{self.base_url}/Indevolt.GetData?config={config}", timeout=timeout) as resp:
+                    return await resp.json() if resp.status == 200 else {}
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                _LOGGER.debug(f"Device offline or unreachable: {type(e).__name__}")
+                return {}
+            except Exception as e:
+                _LOGGER.debug(f"Error fetching data: {type(e).__name__}: {str(e)}")
+                return {}
+        
+        # Split into batches and combine results
+        combined_data = {}
+        batch_num = 0
+        for i in range(0, len(keys), batch_size):
+            batch_num += 1
+            batch = keys[i:i + batch_size]
+            config = json.dumps({"t": batch}).replace(" ", "")
+            try:
+                timeout = aiohttp.ClientTimeout(total=15)
+                async with self.session.post(f"{self.base_url}/Indevolt.GetData?config={config}", timeout=timeout) as resp:
+                    if resp.status == 200:
+                        batch_data = await resp.json()
+                        _LOGGER.debug(f"Batch {batch_num}: Requested {len(batch)} keys, received {len(batch_data)} values")
+                        _LOGGER.debug(f"Batch {batch_num} keys: {batch[:5]}...{batch[-3:] if len(batch) > 5 else []}")
+                        
+                        # Check if batch_data keys match what we requested
+                        requested_keys_str = {str(k) for k in batch}
+                        received_keys = set(batch_data.keys())
+                        missing = requested_keys_str - received_keys
+                        if missing:
+                            _LOGGER.debug(f"Batch {batch_num}: Missing keys in response: {sorted(missing)[:10]}")
+                        
+                        combined_data.update(batch_data)
+                    else:
+                        _LOGGER.debug(f"Batch {batch_num}: API returned status {resp.status}")
+            except (aiohttp.ClientError, asyncio.TimeoutError):
+                _LOGGER.debug(f"Batch {batch_num}: Device offline or unreachable")
+                # Continue with other batches even if one fails
+                pass
+            except Exception as e:
+                _LOGGER.debug(f"Batch {batch_num}: Error occurred: {type(e).__name__}")
+                # Continue with other batches even if one fails
+                pass
+        
+        if combined_data:
+            _LOGGER.debug(f"Total data combined: {len(combined_data)} values from {batch_num} batches")
+        return combined_data
 
-        except asyncio.TimeoutError:
-            raise Exception("Indevolt.SetData Request timed out")
-        except aiohttp.ClientError as err:
-            raise Exception(f"Indevolt.SetData Network error: {err}")
+    async def set_data(self, f: int, t: int, v: list) -> dict:
+        """Write data to registers."""
+        import logging
+        _LOGGER = logging.getLogger(__name__)
+        
+        config = json.dumps({"f": f, "t": t, "v": v}).replace(" ", "")
+        try:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with self.session.post(f"{self.base_url}/Indevolt.SetData?config={config}", timeout=timeout) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                else:
+                    _LOGGER.warning(f"Failed to set data: API returned status {resp.status}")
+                    return {}
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            _LOGGER.error(f"Device offline or unreachable when trying to set data: {type(e).__name__}")
+            raise ConnectionError(f"Cannot connect to device at {self.host}:{self.port}") from e
+        except Exception as e:
+            _LOGGER.error(f"Error setting data: {type(e).__name__}: {str(e)}")
+            raise
+
+    async def async_charge(self, p, s=100, m=1200):
+        """Set to Real-Time Mode then Charge (Register 47015: State 1)."""
+        # Note: Ideally switch to Mode 4 first, but this command handles the charge action
+        return await self.set_data(16, 47015, [1, min(p, m), s])
+
+    async def async_discharge(self, p, s=5, m=800):
+        """Set to Real-Time Mode then Discharge (Register 47015: State 2)."""
+        return await self.set_data(16, 47015, [2, min(p, m), s])
+
+    async def async_stop(self):
+        """Stop charging/discharging (Register 47015: State 0)."""
+        return await self.set_data(16, 47015, [0, 0, 0])
+
+    async def async_set_mode(self, mode: int):
+        """
+        Set the device working mode (Register 47005).
+        1: Self-consumed prioritized
+        4: Real-time control
+        5: Charge/Discharge Schedule        
+        """
+        return await self.set_data(16, 47005, [mode])
+
+    async def async_set_backup_soc(self, soc: int):
+        """
+        Set Backup SOC (minimum reserve SOC).
+        Register: 1142
+        Valid range: 5–100
+        """
+        soc = int(soc)
+        if soc < 5 or soc > 100:
+            raise ValueError("Backup SOC must be between 5 and 100")
+
+        return await self.set_data(16, 1142, [soc])
+        
+    async def async_set_ac_output_power(self, ac_output_power: int):
+        """
+        Set AC Output Power.
+        Register: 1147
+        Valid range: 0–2400
+        """
+        ac_output_power = int(ac_output_power)
+        if ac_output_power < 0 or ac_output_power > 2400:
+            raise ValueError("AC Output power must be between 50 and 2400")
+
+        return await self.set_data(16, 1147, [ac_output_power]) 
+        
+    async def async_set_feed_in_power(self, feed_in_power: int):
+        """
+        Set Feed-In Power.
+        Register: 1146
+        Valid range: 0–2400
+        """
+        feed_in_power = int(feed_in_power)
+        if feed_in_power < 0 or feed_in_power > 2400:
+            raise ValueError("Feed-In power must be between 50 and 2400")
+
+        return await self.set_data(16, 1146, [feed_in_power]) 
+        
+    async def async_set_grid_charging(self, grid_charging: int):
+        """
+        Enable/Disable Grid Charging.
+        Register: 1143
+        Value: 0/1
+        """
+        grid_charging = int(grid_charging)
+
+        return await self.set_data(16, 1143, [grid_charging]) 
+        
+    async def async_set_inverter_input_power(self, inverter_input_power: int):
+        """
+        Set Inverter Input Power.
+        Register: 1138
+        Valid range: 0–2400
+        """
+        inverter_input_power = int(inverter_input_power)
+        if inverter_input_power < 0 or inverter_input_power > 2400:
+            raise ValueError("Inverter Input power must be between 0 and 2400")
+
+        return await self.set_data(16, 1138, [inverter_input_power])         
+        
+    async def async_set_bypass_socket(self, bypass_socket: int):
+        """
+        Enable/Disable Bypass Socket.
+        Register: 7266
+        Value: 0/1
+        """
+        bypass_socket = int(bypass_socket)
+
+        return await self.set_data(16, 7266, [bypass_socket])
+        
+    async def async_set_led_light(self, led_light: int):
+        """
+        Enable/Disable LED Light.
+        Register: 7265
+        Value: 0/1
+        """
+        led_light = int(led_light)
+
+        return await self.set_data(16, 7265, [led_light])
