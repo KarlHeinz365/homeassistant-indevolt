@@ -5,7 +5,7 @@
 - **Modified API calls (Batch processing to handle large sensor list queries)**
 - **Modified Error handling**
 - **Fixed some bugs**
-- **Added HACS compatibiblity (not tested yet!)**
+- **Added HACS compatibiblity (use version >= 1.1.3)**
 - ****
 - **Use at your own risk!**
 
